@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FFT / PSD 噪音分析工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft JhengHei','Segoe UI',sans-serif;background:#f0f2f5;color:#222;padding:20px;max-width:1200px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.sub{font-size:13px;color:#666;margin-bottom:20px}
+.panel{background:#fff;border-radius:10px;border:1px solid #ddd;padding:20px;margin-bottom:16px}
+.panel-title{font-size:15px;font-weight:600;margin-bottom:14px;color:#333;display:flex;align-items:center;gap:8px}
+.panel-title::before{content:'';width:4px;height:18px;background:#2a78d6;border-radius:2px}
+.top-bar{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.pg{display:flex;flex-direction:column;gap:4px}
+.pg label{font-size:12px;color:#666;font-weight:500}
+.pg input,.pg select{padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;outline:none}
+.pg input[type=number]{width:110px}
+.pg select{width:220px}
+.ubtn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#2a78d6;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;position:relative;overflow:hidden;white-space:nowrap;align-self:flex-end}
+.ubtn:hover{background:#1e5faa}
+.ubtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.fl{font-size:12px;color:#2a78d6;margin-top:2px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.info-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.info-card{background:#f8f9fa;border:1px solid #e8e8e8;border-radius:8px;padding:12px 16px;flex:1;min-width:130px}
+.info-card .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.info-card .value{font-size:22px;font-weight:600;margin-top:2px}
+.info-card .unit{font-size:12px;color:#666;font-weight:400}
+.charts{background:#fff;border-radius:10px;border:1px solid #ddd;overflow:hidden}
+.cs{padding:16px}
+.cs+.cs{border-top:1px solid #e8e8e8}
+.ct{font-size:15px;font-weight:600;margin-bottom:8px;color:#333}
+.legend{display:flex;gap:16px;font-size:13px;color:#666;margin-top:6px}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:14px;height:3px;border-radius:1px;display:inline-block}
+.hidden{display:none}
+.tabs{display:flex;gap:0;margin-bottom:16px}
+.tab{padding:10px 20px;font-size:15px;font-weight:500;cursor:pointer;border:1px solid #ddd;background:#f8f9fa;color:#666}
+.tab:first-child{border-radius:8px 0 0 8px}
+.tab:last-child{border-radius:0 8px 8px 0}
+.tab.active{background:#2a78d6;color:#fff;border-color:#2a78d6}
+.tab+.tab{border-left:none}
+.ptable{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+.ptable th{background:#f8f9fa;padding:10px 14px;text-align:left;font-weight:500;color:#555;border-bottom:2px solid #e0e0e0;font-size:14px}
+.ptable td{padding:10px 14px;border-bottom:1px solid #eee;font-size:14px}
+.ptable tr:hover td{background:#f0f6ff}
+.pr{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:600;color:#fff}
+.sr{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.sr label{font-size:13px;color:#555;min-width:120px}
+.sr input[type=range]{flex:1;max-width:300px}
+.sr .sv{font-size:13px;color:#2a78d6;min-width:70px;font-weight:500}
+.mn{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.mn button{padding:6px 14px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-size:14px}
+.mn button:hover{border-color:#2a78d6;color:#2a78d6}
+.mn .mi{font-size:15px;font-weight:500;color:#333}
+.ax-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;background:#f8f9fb;border-radius:8px;font-size:13px}
+.ax-row label{color:#555;font-weight:500}
+.ax-row input{width:75px;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;text-align:center}
+.ax-row button{padding:4px 12px;border:1px solid #bbb;border-radius:4px;background:#fff;cursor:pointer;font-size:12px;font-weight:500}
+.ax-row button:hover{border-color:#2a78d6;color:#2a78d6}
+.sum{font-family:'Microsoft JhengHei',sans-serif}
+.sum .sec{margin-top:16px;padding-top:14px;border-top:1px solid #eee}
+.sum .sec:first-child{margin-top:0;padding-top:0;border-top:none}
+.sum .sec-title{font-size:17px;font-weight:700;margin-bottom:10px;color:#222}
+.sum .row{font-size:15px;line-height:2.4;color:#333}
+.sum .row b{color:#111;margin-right:8px}
+.stat-line{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:15px}
+.fbar{display:inline-block;height:18px;background:linear-gradient(90deg,#2a78d6,#5ba3e6);border-radius:3px;margin-right:8px;vertical-align:middle;min-width:3px}
+.skip-note{margin-top:6px;color:#999;font-size:13px}
+</style>
+</head>
+<body>
+<h1>FFT / PSD 噪音分析工具</h1>
+<p class="sub">上傳 LabVIEW 匯出的 Excel 檔案，自動分析頻譜趨勢與主要峰值</p>
+
+<div class="panel">
+<div class="panel-title">參數設定與檔案上傳</div>
+<div class="top-bar">
+  <div class="pg"><label>Rate (Hz)</label><input type="number" id="inp-rate" value="12800" min="1"></div>
+  <div class="pg"><label>Samples</label><input type="number" id="inp-samples" value="2560" min="1"></div>
+  <div class="pg"><label>頻率解析度</label><div style="font-size:13px;color:#2a78d6;margin-top:6px" id="comp-df">df = 5.0 Hz</div></div>
+  <div class="pg"><label>每筆間隔</label><div style="font-size:13px;color:#2a78d6;margin-top:6px" id="comp-dt">dt = 0.200 秒</div></div>
+  <div class="pg" style="margin-left:auto">
+    <label>Excel 檔案</label>
+    <button class="ubtn" id="upload-btn-el">📂 選擇檔案<input type="file" id="file-input" accept=".xlsx,.xls,.csv"></button>
+    <div class="fl" id="file-name"></div>
+  </div>
+</div>
+</div>
+
+<div id="results" class="hidden">
+<div class="tabs">
+  <div class="tab active" data-tab="overview" onclick="switchTab('overview')">趨勢總覽</div>
+  <div class="tab" data-tab="spectrum" onclick="switchTab('spectrum')">頻譜峰值分析</div>
+</div>
+
+<!-- ═══ Tab 1 ═══ -->
+<div id="tab-overview">
+<div class="info-row" id="info-cards"></div>
+<div class="charts">
+  <div class="cs">
+    <div class="ct">Run Leq (dBA) 與峰值頻率變化</div>
+    <div class="ax-row" id="ax-trend">
+      <label>X:</label><input id="t-xmin" placeholder="auto"> – <input id="t-xmax" placeholder="auto"> <span>秒</span>
+      <label style="margin-left:8px">Y左:</label><input id="t-ymin" placeholder="auto"> – <input id="t-ymax" placeholder="auto"> <span>dBA</span>
+      <label style="margin-left:8px">Y右:</label><input id="t-y1min" placeholder="auto"> – <input id="t-y1max" placeholder="auto"> <span>Hz</span>
+      <button onclick="applyTrendAxis()">套用</button><button onclick="resetTrendAxis()">自動</button>
+    </div>
+    <div style="position:relative;height:300px"><canvas id="c1"></canvas></div>
+    <div class="legend"><span><i style="background:#2a78d6"></i>Run Leq (dBA)</span><span><i style="background:#eb6834"></i>峰值頻率 (Hz)</span></div>
+  </div>
+  <div class="cs">
+    <div class="ct">峰值頻率對應幅值 (dB)</div>
+    <div style="position:relative;height:220px"><canvas id="c2"></canvas></div>
+  </div>
+</div>
+<div class="panel" style="margin-top:16px"><div class="panel-title">數據摘要</div><div id="summary" class="sum"></div></div>
+</div>
+
+<!-- ═══ Tab 2 ═══ -->
+<div id="tab-spectrum" class="hidden">
+<div class="panel" style="margin-bottom:0">
+  <div class="mn">
+    <button onclick="chgM(-1)">◀ 上一筆</button>
+    <div class="pg"><select id="meas-select" onchange="doSpec()"></select></div>
+    <button onclick="chgM(1)">下一筆 ▶</button>
+    <div class="mi" id="meas-info"></div>
+  </div>
+  <div class="panel-title" style="margin-top:8px">峰值偵測參數</div>
+  <div class="sr"><label>突出度 Prominence</label><input type="range" id="sl-prom" min="0.5" max="40" value="6" step="0.5" oninput="uSL();doSpec()"><div class="sv" id="vp">6.0 dB</div></div>
+  <div class="sr"><label>最小間距</label><input type="range" id="sl-dist" min="5" max="1000" value="50" step="5" oninput="uSL();doSpec()"><div class="sv" id="vd">50 Hz</div></div>
+  <div class="sr"><label>最低門檻</label><input type="range" id="sl-thresh" min="0" max="40" value="0" step="1" oninput="uSL();doSpec()"><div class="sv" id="vt">0 dB</div></div>
+  <div class="sr"><label>最大峰值數</label><input type="range" id="sl-maxn" min="3" max="10" value="10" step="1" oninput="uSL();doSpec()"><div class="sv" id="vn">10</div></div>
+</div>
+<div class="panel" style="margin-top:16px">
+  <div class="ct" id="spec-title">頻譜與峰值標記</div>
+  <div class="ax-row">
+    <label>X:</label><input id="s-xmin" placeholder="auto"> – <input id="s-xmax" placeholder="auto"> <span>Hz</span>
+    <label style="margin-left:8px">Y:</label><input id="s-ymin" placeholder="auto"> – <input id="s-ymax" placeholder="auto"> <span>dB</span>
+    <button onclick="doSpec()">套用</button><button onclick="resetSpecAxis()">自動</button>
+  </div>
+  <div id="spec-chart-box" style="position:relative;height:380px"></div>
+</div>
+<div class="panel" style="margin-top:16px"><div class="panel-title">偵測到的峰值</div><div id="peak-wrap"></div></div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let ch1=null,ch2=null,chS=null;
+const G={freq:null,fft:null,leq:null,valid:null,isNan:null,pf:null,pd:null,n:0,nF:0,dt:.2,df:5};
+const PC=['#e24b4a','#eb6834','#eda100','#1baf7a','#2a78d6','#7c3aed','#db2777','#0891b2','#65a30d','#a16207'];
+const FONT={family:"'Microsoft JhengHei',sans-serif",size:13};
+
+function uP(){const r=+$('inp-rate').value||1,s=+$('inp-samples').value||1;$('comp-df').textContent=`df = ${(r/s).toFixed(1)} Hz`;$('comp-dt').textContent=`dt = ${(s/r).toFixed(3)} 秒`;}
+$('inp-rate').addEventListener('input',uP);$('inp-samples').addEventListener('input',uP);uP();
+function uSL(){$('vp').textContent=$('sl-prom').value+' dB';$('vd').textContent=$('sl-dist').value+' Hz';$('vt').textContent=$('sl-thresh').value+' dB';$('vn').textContent=$('sl-maxn').value;}
+
+// ── Storage (only params + leq + peaks, NOT full FFT) ──
+async function saveParams(){
+  try{
+    const d={rate:$('inp-rate').value,samp:$('inp-samples').value,fname:$('file-name').textContent,
+      leq:G.leq,pf:G.pf,pd:G.pd,freq:G.freq,n:G.n,nF:G.nF,
+      // Store FFT compressed: only keep data for overview, not full matrix
+      fftSample:null};
+    await window.storage.set('fft-params',JSON.stringify(d));
+  }catch(e){}
+}
+async function saveFftChunk(){
+  // Store FFT in chunks to stay under 5MB
+  if(!G.fft)return;
+  try{
+    const chunkSize=200;// freq bins per chunk
+    const nChunks=Math.ceil(G.nF/chunkSize);
+    for(let c=0;c<nChunks;c++){
+      const start=c*chunkSize,end=Math.min(start+chunkSize,G.nF);
+      const slice=G.fft.slice(start,end);
+      await window.storage.set(`fft-c${c}`,JSON.stringify(slice));
+    }
+    await window.storage.set('fft-meta',JSON.stringify({nChunks,chunkSize,nF:G.nF}));
+  }catch(e){}
+}
+async function loadAll(){
+  try{
+    const r=await window.storage.get('fft-params');
+    if(!r)return false;
+    const d=JSON.parse(r.value);
+    $('inp-rate').value=d.rate;$('inp-samples').value=d.samp;$('file-name').textContent=d.fname;
+    uP();
+    G.leq=d.leq;G.pf=d.pf;G.pd=d.pd;G.freq=d.freq;G.n=d.n;G.nF=d.nF;
+    G.dt=(+d.samp)/(+d.rate);G.df=(+d.rate)/(+d.samp);
+    G.valid=G.leq.map(v=>isFinite(v)&&v!==0);
+    G.isNan=G.leq.map(v=>!isFinite(v));
+    // Load FFT chunks
+    const mr=await window.storage.get('fft-meta');
+    if(mr){
+      const meta=JSON.parse(mr.value);
+      G.fft=[];
+      for(let c=0;c<meta.nChunks;c++){
+        const cr=await window.storage.get(`fft-c${c}`);
+        if(cr){const arr=JSON.parse(cr.value);G.fft.push(...arr);}
+      }
+      if(G.fft.length<G.nF)G.fft=null;// incomplete
+    }
+    $('results').classList.remove('hidden');
+    renderOverview();populateMS();
+    return true;
+  }catch(e){return false;}
+}
+
+// ── Tabs ──
+let specNeedsRender=false;
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===n));
+  $('tab-overview').classList.toggle('hidden',n!=='overview');
+  $('tab-spectrum').classList.toggle('hidden',n!=='spectrum');
+  if(n==='spectrum'){specNeedsRender=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(specNeedsRender)doSpec();}));}
+}
+
+// ── Upload ──
+function loadFile(f){
+  $('file-name').textContent=f.name;
+  const r=new FileReader();
+  r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});processData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null}));}catch(er){alert('解析失敗: '+er.message);}};
+  r.readAsArrayBuffer(f);
+}
+$('file-input').addEventListener('change',e=>{if(e.target.files.length)loadFile(e.target.files[0]);});
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files.length)loadFile(e.dataTransfer.files[0]);});
+
+// ── Process ──
+function processData(rows){
+  const rate=+$('inp-rate').value||12800,samp=+$('inp-samples').value||2560;
+  G.dt=samp/rate;G.df=rate/samp;
+  const rawLeq=[];for(let c=2;c<rows[0].length;c++)rawLeq.push(parseFloat(rows[0][c]));
+  G.n=rawLeq.length;G.leq=rawLeq;
+  G.valid=rawLeq.map(v=>isFinite(v)&&v!==0);G.isNan=rawLeq.map(v=>!isFinite(v));
+  const freq=[];for(let r=1;r<rows.length;r++){const v=parseFloat(rows[r][1]);if(!isNaN(v))freq.push(v);else break;}
+  G.nF=freq.length;G.freq=freq;
+  const fft=[];for(let fi=0;fi<G.nF;fi++){const b=[];for(let mi=0;mi<G.n;mi++)b.push(parseFloat(rows[fi+1][mi+2])||0);fft.push(b);}
+  G.fft=fft;
+  const pf=[],pd=[];
+  for(let mi=0;mi<G.n;mi++){
+    if(!G.valid[mi]){pf.push(null);pd.push(null);continue;}
+    let mx=-Infinity,mxi=1;for(let fi=1;fi<G.nF;fi++){if(fft[fi][mi]>mx){mx=fft[fi][mi];mxi=fi;}}
+    pf.push(freq[mxi]);pd.push(Math.round(mx*10)/10);
+  }
+  G.pf=pf;G.pd=pd;
+  $('results').classList.remove('hidden');
+  renderOverview();populateMS();saveParams();saveFftChunk();
+}
+
+function calcAvg(arr){let s=0,c=0;for(const v of arr){if(isFinite(v)&&v!==0){s+=Math.pow(10,v/10);c++;}}return c?10*Math.log10(s/c):0;}
+function clusterF(arr,tol){const v=arr.filter(f=>f!==null),sorted=[...v].sort((a,b)=>a-b),cl=[];for(const f of sorted){let ok=false;for(const c of cl){if(Math.abs(f-c.ctr)<tol){c.vs.push(f);c.ctr=c.vs.reduce((a,b)=>a+b,0)/c.vs.length;ok=true;break;}}if(!ok)cl.push({ctr:f,vs:[f]});}cl.sort((a,b)=>b.vs.length-a.vs.length);return cl;}
+
+// ── Trend Axis ──
+function getTrendAxis(){
+  const g=id=>{const v=$( id).value;return v===''?undefined:+v;};
+  return{xmin:g('t-xmin'),xmax:g('t-xmax'),ymin:g('t-ymin'),ymax:g('t-ymax'),y1min:g('t-y1min'),y1max:g('t-y1max')};
+}
+function applyTrendAxis(){renderOverview();}
+function resetTrendAxis(){['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max'].forEach(id=>{$(id).value='';});renderOverview();}
+
+// ── Overview ──
+function renderOverview(){
+  const {leq,pf,pd,n,dt,df,freq,nF,valid,isNan}=G;
+  const rate=+$('inp-rate').value||12800,samp=+$('inp-samples').value||2560;
+  const vLeq=leq.filter((_,i)=>valid[i]);
+  const maxL=vLeq.length?Math.max(...vLeq):0;
+  const avgL=calcAvg(leq);
+  const vc=valid.filter(Boolean).length;
+
+  $('info-cards').innerHTML=[
+    {l:'最大 Run Leq',v:maxL.toFixed(1),u:'dBA'},
+    {l:'Leq（能量平均）',v:avgL.toFixed(1),u:'dBA'},
+    {l:'有效數據',v:vc,u:`/ ${n} 筆`},
+    {l:'總測試時間',v:((n-1)*dt).toFixed(1),u:'秒'}
+  ].map(c=>`<div class="info-card"><div class="label">${c.l}</div><div class="value">${c.v} <span class="unit">${c.u}</span></div></div>`).join('');
+
+  if(ch1){ch1.destroy();}if(ch2){ch2.destroy();}
+
+  const leqD=[],pfD=[],pdD=[];
+  for(let i=0;i<n;i++){
+    const t=+(i*dt).toFixed(3);
+    if(isNan[i]||leq[i]===0){leqD.push({x:t,y:null});pfD.push({x:t,y:null});pdD.push(null);}
+    else{leqD.push({x:t,y:leq[i]});pfD.push({x:t,y:pf[i]});pdD.push(pd[i]);}
+  }
+  const maxT=+((n-1)*dt).toFixed(3);
+  const gc='#e8e8e8';
+  let step=1;if(maxT>60)step=10;else if(maxT>30)step=5;else if(maxT>15)step=2;
+  const ta=getTrendAxis();
+
+  ch1=new Chart($('c1'),{type:'scatter',
+    data:{datasets:[
+      {label:'Run Leq (dBA)',data:leqD,borderColor:'#2a78d6',backgroundColor:'rgba(42,120,214,0.08)',fill:true,showLine:true,spanGaps:false,borderWidth:2,pointRadius:n>200?.5:1.5,pointHoverRadius:5,tension:.3,yAxisID:'y'},
+      {label:'峰值頻率 (Hz)',data:pfD,borderColor:'#eb6834',fill:false,showLine:true,spanGaps:false,borderWidth:2,pointRadius:n>200?.5:1.5,pointHoverRadius:5,tension:0,yAxisID:'y1',pointStyle:'rect'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},
+      plugins:{legend:{display:false},tooltip:{filter:c=>c.parsed.y!==null,callbacks:{
+        title:c=>`時間 ${c[0].parsed.x.toFixed(1)}s（#${Math.round(c[0].parsed.x/dt)+1}）`,
+        label:c=>c.datasetIndex===0?`Run Leq: ${c.parsed.y.toFixed(1)} dBA`:`峰值頻率: ${c.parsed.y.toFixed(0)} Hz`
+      }}},
+      scales:{
+        x:{type:'linear',min:ta.xmin??0,max:ta.xmax??maxT,grid:{color:gc},ticks:{font:FONT,stepSize:step},title:{display:true,text:'時間 (秒)',font:{...FONT,size:14}}},
+        y:{min:ta.ymin,max:ta.ymax,title:{display:true,text:'Run Leq (dBA)',color:'#2a78d6',font:{...FONT,size:14}},grid:{color:gc},ticks:{color:'#2a78d6',font:FONT},position:'left'},
+        y1:{min:ta.y1min,max:ta.y1max,title:{display:true,text:'峰值頻率 (Hz)',color:'#eb6834',font:{...FONT,size:14}},grid:{drawOnChartArea:false},ticks:{color:'#eb6834',font:FONT},position:'right'}
+      }}
+  });
+
+  ch2=new Chart($('c2'),{type:'bar',
+    data:{labels:Array.from({length:n},(_,i)=>+(i*dt).toFixed(3)),datasets:[{data:pdD.map(v=>v??0),backgroundColor:pdD.map(v=>v===null?'transparent':v>40?'#e24b4a':v>35?'#eb6834':v>30?'#eda100':'#1baf7a'),borderRadius:2,barPercentage:.9,categoryPercentage:.95}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{filter:c=>pdD[c.dataIndex]!==null,callbacks:{
+        title:c=>`時間 ${(c[0].dataIndex*dt).toFixed(1)}s（#${c[0].dataIndex+1}）`,
+        label:c=>`幅值: ${pd[c.dataIndex]} dB`,
+        afterLabel:c=>`峰值頻率: ${pf[c.dataIndex]} Hz`
+      }}},
+      scales:{
+        x:{type:'linear',min:ta.xmin??0,max:ta.xmax??maxT,offset:false,grid:{color:gc,offset:false},ticks:{font:FONT,stepSize:step},title:{display:true,text:'時間 (秒)',font:{...FONT,size:14}}},
+        y:{title:{display:true,text:'幅值 (dB)',font:{...FONT,size:14}},grid:{color:gc},ticks:{font:FONT}},
+        y1:{position:'right',display:true,grid:{drawOnChartArea:false},ticks:{display:false},title:{display:true,text:' ',font:{size:14}},afterFit:a=>{a.width=0;}}
+      }}
+  });
+  setTimeout(()=>{if(ch1&&ch2){const w=ch1.scales.y1.width;ch2.options.scales.y1.afterFit=a=>{a.width=w;};ch2.update('none');}},250);
+
+  // Summary
+  const maxLi=leq.indexOf(maxL);
+  const vPd=pd.filter(v=>v!==null);const maxPd=vPd.length?Math.max(...vPd):0;const maxPdi=pd.indexOf(maxPd);
+  const tol=Math.max(df*5,50);const cls=clusterF(pf,tol);const topC=cls.slice(0,6).filter(c=>c.vs.length>0);
+  const mxC=Math.max(...topC.map(c=>c.vs.length));
+  const nanC=isNan.filter(Boolean).length,zeroC=leq.filter(v=>v===0).length;
+
+  let cHtml=topC.map(c=>{const pct=(c.vs.length/vc*100).toFixed(1);const bw=Math.max(3,c.vs.length/mxC*180);return `<div class="stat-line"><span class="fbar" style="width:${bw}px"></span><b>~${Math.round(c.ctr)} Hz</b>　${c.vs.length} 次（${pct}%）</div>`;}).join('');
+  let skip='';if(nanC||zeroC)skip=`<div class="skip-note">排除數據：NaN ${nanC} 筆、0 值 ${zeroC} 筆（不計入統計）</div>`;
+
+  $('summary').innerHTML=`
+    <div class="sec"><div class="sec-title">📋 基本資訊</div><div class="row">
+      <b>DAQ 參數</b>　Rate = ${rate} Hz　Samples = ${samp}　df = ${df.toFixed(1)} Hz　dt = ${dt.toFixed(3)}s<br>
+      <b>數據規模</b>　${n} 筆量測（有效 ${vc} 筆）× ${nF} 頻率 bins（${freq[0]} – ${freq[nF-1]} Hz）<br>
+      <b>測試時長</b>　${((n-1)*dt).toFixed(1)} 秒 ${skip}
+    </div></div>
+    <div class="sec"><div class="sec-title">📊 統計數據</div><div class="row">
+      <b>最大 Run Leq</b>　${maxL.toFixed(1)} dBA　@ ${(maxLi*dt).toFixed(1)}s（#${maxLi+1}）<br>
+      <b>Leq（能量平均）</b>　${avgL.toFixed(1)} dBA<br>
+      <b>最大峰值幅值</b>　${maxPd.toFixed(1)} dB　@ ${pf[maxPdi]} Hz　${(maxPdi*dt).toFixed(1)}s（#${maxPdi+1}）
+    </div></div>
+    <div class="sec"><div class="sec-title">🎯 峰值頻率落點分布</div>${cHtml}</div>`;
+}
+
+// ── Spectrum ──
+function populateMS(){
+  const sel=$('meas-select');sel.innerHTML='';
+  for(let i=0;i<G.n;i++){
+    if(G.isNan[i])continue;
+    const o=document.createElement('option');o.value=i;
+    o.textContent=`#${i+1}（${(i*G.dt).toFixed(1)}s）${G.leq[i]===0?'(空白)':'Leq='+G.leq[i].toFixed(1)+' dBA'}`;
+    sel.appendChild(o);
+  }
+}
+function chgM(d){const sel=$('meas-select');const opts=[...sel.options].map(o=>+o.value);let idx=opts.indexOf(+sel.value)+d;if(idx<0)idx=0;if(idx>=opts.length)idx=opts.length-1;sel.value=opts[idx];doSpec();}
+function doSpec(){if(G.freq&&G.fft)renderSpec(+$('meas-select').value);}
+function resetSpecAxis(){['s-xmin','s-xmax','s-ymin','s-ymax'].forEach(id=>{$(id).value='';});doSpec();}
+
+function findPeaks(data,prom,distB,thresh,maxN){
+  const n=data.length,cd=[];
+  for(let i=1;i<n-1;i++){if(data[i]>data[i-1]&&data[i]>=data[i+1]&&data[i]>=thresh)cd.push(i);}
+  const wp=[];for(const idx of cd){let lm=data[idx],rm=data[idx];for(let j=idx-1;j>=0;j--){if(data[j]>data[idx])break;if(data[j]<lm)lm=data[j];}for(let j=idx+1;j<n;j++){if(data[j]>data[idx])break;if(data[j]<rm)rm=data[j];}const p=data[idx]-Math.max(lm,rm);if(p>=prom)wp.push({idx,val:data[idx],prom:p});}
+  wp.sort((a,b)=>b.prom-a.prom);
+  const sl=[];for(const p of wp){if(sl.length>=maxN)break;if(!sl.some(s=>Math.abs(s.idx-p.idx)<distB))sl.push(p);}
+  sl.sort((a,b)=>a.idx-b.idx);return sl;
+}
+
+function renderSpec(mi){
+  if(!G.fft){$('spec-title').textContent='請重新上傳檔案以載入 FFT 數據';return;}
+  const {freq,fft,nF,leq,df}=G;
+  const spec=[];for(let fi=0;fi<nF;fi++)spec.push(fft[fi][mi]);
+
+  const prom=+$('sl-prom').value,distHz=+$('sl-dist').value,thresh=+$('sl-thresh').value,maxN=+$('sl-maxn').value;
+  const peaks=findPeaks(spec,prom,Math.max(1,Math.round(distHz/df)),thresh,maxN);
+
+  const ls=leq[mi]===0?'(空白)':leq[mi].toFixed(1)+' dBA';
+  $('meas-info').textContent=`Run Leq = ${ls}`;
+  $('spec-title').textContent=`頻譜 #${mi+1}（${(mi*G.dt).toFixed(1)}s）— 偵測到 ${peaks.length} 個峰值`;
+  specNeedsRender=false;
+
+  // Destroy old chart and recreate canvas (bulletproof)
+  if(chS){chS.destroy();chS=null;}
+  const box=$('spec-chart-box');
+  box.innerHTML='<canvas></canvas>';
+  const canvas=box.querySelector('canvas');
+
+  // Axis
+  const gv=id=>{const v=$(id).value;return v===''?undefined:+v;};
+  const xMin=gv('s-xmin')??0, xMax=gv('s-xmax')??freq[nF-1];
+  const yMin=gv('s-ymin'), yMax=gv('s-ymax');
+
+  // Build {x,y} data
+  const xyData=new Array(nF);
+  for(let i=0;i<nF;i++) xyData[i]={x:freq[i],y:spec[i]};
+
+  chS=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[{
+      label:'頻譜 (dB)',
+      data:xyData,
+      borderColor:'#2a78d6',
+      backgroundColor:'rgba(42,120,214,0.06)',
+      fill:true,
+      showLine:true,
+      borderWidth:1.5,
+      pointRadius:0,
+      pointHoverRadius:4,
+      tension:0
+    }]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:false,
+      interaction:{mode:'nearest',intersect:false,axis:'x'},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          title:c=>`${c[0].parsed.x.toFixed(1)} Hz`,
+          label:c=>`${c[0].parsed.y.toFixed(1)} dB`
+        }}
+      },
+      scales:{
+        x:{type:'linear',min:xMin,max:xMax,
+          title:{display:true,text:'頻率 (Hz)',font:{...FONT,size:14}},
+          grid:{color:'#e8e8e8'},ticks:{font:FONT,stepSize:xMax>5000?1000:500}},
+        y:{min:yMin,max:yMax,
+          title:{display:true,text:'幅值 (dB)',font:{...FONT,size:14}},
+          grid:{color:'#e8e8e8'},ticks:{font:FONT}}
+      }
+    },
+    plugins:[{
+      id:'pkDraw',
+      afterDatasetsDraw(chart){
+        const ctx=chart.ctx,xs=chart.scales.x,ys=chart.scales.y;
+        ctx.save();
+        peaks.forEach((p,i)=>{
+          const px=xs.getPixelForValue(freq[p.idx]),py=ys.getPixelForValue(p.val);
+          if(px<xs.left-5||px>xs.right+5||py<ys.top-5||py>ys.bottom+5)return;
+          const col=PC[i%PC.length];
+          ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(px,py-10);ctx.lineTo(px-6,py+2);ctx.lineTo(px+6,py+2);ctx.closePath();ctx.fill();
+          ctx.strokeStyle=col;ctx.globalAlpha=.25;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(px,py+2);ctx.lineTo(px,ys.bottom);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+          ctx.fillStyle=col;ctx.font="bold 12px 'Microsoft JhengHei',sans-serif";ctx.textAlign='center';
+          ctx.fillText(`${freq[p.idx].toFixed(0)} Hz`,px,py-16);
+          ctx.font="11px sans-serif";ctx.fillText(`${p.val.toFixed(1)} dB`,px,py-30);
+        });
+        ctx.restore();
+      }
+    }]
+  });
+
+  // Table
+  let h=`<table class="ptable"><thead><tr><th>#</th><th>頻率 (Hz)</th><th>幅值 (dB)</th><th>突出度 (dB)</th><th>頻段</th></tr></thead><tbody>`;
+  peaks.forEach((p,i)=>{const f=freq[p.idx],band=f<100?'低頻':f<500?'中低頻':f<2000?'中頻':f<5000?'中高頻':'高頻';h+=`<tr><td><span class="pr" style="background:${PC[i%PC.length]}">${i+1}</span></td><td><b>${f.toFixed(1)}</b></td><td>${p.val.toFixed(1)}</td><td>${p.prom.toFixed(1)}</td><td>${band}</td></tr>`;});
+  h+=`</tbody></table>`;
+  if(!peaks.length)h=`<p style="color:#888;padding:12px;font-size:14px">未偵測到符合條件的峰值，請調低突出度或最低門檻</p>`;
+  $('peak-wrap').innerHTML=h;
+}
+
+// ── Init ──
+(async()=>{const ok=await loadAll();if(!ok)uP();})();
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# 環境設定與機密
+.env
+.env.*
+*.env
+config.json
+secrets.json
+credentials.json
+
+# 安全金鑰與憑證
+*.pem
+*.key
+id_rsa
+*.p12
+
+# 建置與暫存
+node_modules/
+dist/
+build/
+*.log
+*.sqlite
+
+# Flask 已有獨立 Git 儲存庫
+Flask/
