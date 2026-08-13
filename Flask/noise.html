@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>噪音振動測試</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#07090d;--panel:#0c1018;--border:#1a2235;
+  --accent:#00e5ff;--green:#39ff8a;--red:#ff3b5c;
+  --yellow:#ffd600;--orange:#ff8c00;--purple:#c084fc;
+  --muted:#8aa4c0;--text:#dde6f0;
+  --mono:'Share Tech Mono',monospace;--body:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-weight:600;display:flex;flex-direction:column}
+
+.topbar{height:48px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px}
+.back{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px;letter-spacing:1px;font-weight:700;transition:all .2s;text-decoration:none}
+.back:hover{border-color:var(--accent);color:var(--accent)}
+.top-logo{font-family:var(--mono);font-size:13px;letter-spacing:3px;color:var(--accent);font-weight:700}
+.top-logo span{color:var(--muted)}
+.top-sub{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:700;letter-spacing:1px}
+.top-sep{flex:1}
+.demo-btn{
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;
+  color:var(--yellow);background:rgba(255,214,0,.08);
+  border:1px solid rgba(255,214,0,.35);border-radius:4px;
+  padding:7px 14px;cursor:pointer;text-transform:uppercase;
+  transition:all .2s;white-space:nowrap;
+}
+.demo-btn:hover:not(:disabled){background:rgba(255,214,0,.16);box-shadow:0 0 12px rgba(255,214,0,.25)}
+.demo-btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+
+.live-badge{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:700}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all .3s}
+.live-dot.bg{background:var(--yellow);box-shadow:0 0 8px var(--yellow);animation:pulse 1.3s infinite}
+.live-dot.ind{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.3s infinite}
+.live-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.top-host{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;padding-left:16px;border-left:1px solid var(--border)}
+.top-clock{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700}
+
+/* BODY */
+.body-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;min-height:0}
+
+/* LEFT */
+.left-col{display:flex;flex-direction:column;overflow:hidden;min-height:0;border-right:1px solid var(--border)}
+
+/* INFO STRIP */
+.info-strip{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--border);display:flex}
+.info-panel{flex:0 0 210px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-right:1px solid var(--border)}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.sum-title{font-size:22px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:4px}
+.info-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:baseline}
+.ig-key{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+.ig-val{font-family:var(--mono);font-size:15px;color:var(--text);font-weight:700}
+
+/* MEASURE PANEL */
+.measure-panel{flex:1;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+
+/* BG section */
+.meas-section{display:flex;flex-direction:column;gap:6px}
+.meas-hdr{display:flex;align-items:center;gap:8px}
+.state-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.state-dot.active-bg{background:var(--yellow);box-shadow:0 0 8px var(--yellow);animation:pulse 1.2s infinite}
+.state-dot.active-ind{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.2s infinite}
+.state-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.meas-title{font-family:var(--mono);font-size:13px;letter-spacing:2px;font-weight:700;color:var(--muted);text-transform:uppercase}
+.meas-title.active-bg{color:var(--yellow)}
+.meas-title.active-ind{color:var(--green)}
+.meas-title.done{color:var(--accent)}
+
+.bg-val-row{display:flex;align-items:baseline;gap:6px}
+.bg-val{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--yellow);line-height:1}
+.bg-unit{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700}
+
+.divider{height:1px;background:var(--border);margin:2px 0}
+
+/* IND values grid */
+.ind-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ind-box{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:6px 8px;position:relative;overflow:hidden}
+.ind-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border)}
+.ind-box.noise::after{background:var(--green)}
+.ind-box.vib::after{background:#2196f3}
+.ind-lbl{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px}
+.ind-val{font-family:var(--mono);font-size:25px;font-weight:700;color:var(--text);line-height:1}
+.ind-box.noise .ind-val{color:var(--green)}
+.ind-box.vib .ind-val{color:#2196f3}
+.ind-unit{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;margin-top:1px}
+
+/* CHARTS */
+.charts-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;padding:8px 10px 0}
+.chart-block{flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:4px}
+.chart-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase;margin-bottom:3px;flex-shrink:0}
+.chart-wrap{flex:1;position:relative;min-height:0}
+.scroll-wrap{flex-shrink:0;padding:4px 0 6px;display:flex;align-items:center;gap:8px}
+.scroll-wrap label{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:700;white-space:nowrap}
+.scroll-wrap input[type=range]{flex:1;accent-color:var(--accent);height:4px}
+
+/* CCD */
+.ccd-area{background:#000;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.ccd-hdr{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px}
+.ccd-hdr-txt{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.rec{display:none;align-items:center;gap:5px;background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.4);border-radius:2px;padding:3px 9px;font-family:var(--mono);font-size:10px;color:var(--red);font-weight:700;letter-spacing:2px}
+.rec.show{display:flex}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);animation:pulse .8s infinite}
+.ccd-body{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ccd-body::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:3}
+.ccd-body::after{content:'';position:absolute;inset:16px;pointer-events:none;z-index:2;opacity:.45;background:linear-gradient(var(--accent),var(--accent)) top left/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) top left/1px 24px no-repeat,linear-gradient(var(--accent),var(--accent)) top right/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) top right/1px 24px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom left/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom left/1px 24px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom right/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom right/1px 24px no-repeat}
+#ccd-img{max-width:100%;max-height:100%;object-fit:contain;z-index:1;display:none}
+.no-sig{position:absolute;font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:5px;font-weight:700;text-transform:uppercase;z-index:1}
+.status-pill{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:3px;background:rgba(74,96,128,.08);border:1px solid rgba(74,96,128,.25);transition:all .4s}
+.status-pill.running{background:rgba(57,255,138,.07);border-color:rgba(57,255,138,.3)}
+.status-pill.done{background:rgba(0,229,255,.07);border-color:rgba(0,229,255,.25)}
+.sp-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.sp-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.2s infinite}
+.sp-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+.sp-info{display:flex;flex-direction:column;gap:1px}
+.sp-txt{font-family:var(--mono);font-size:14px;letter-spacing:2px;font-weight:700;text-transform:uppercase;color:var(--muted)}
+.sp-txt.running{color:var(--green)}.sp-txt.done{color:var(--accent)}
+.sp-sub{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700}
+/* nav dropdown */
+.nav-drop{position:relative}
+.nav-btn{background:rgba(0,229,255,0.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:12px;padding:6px 14px;cursor:pointer;border-radius:3px;letter-spacing:1px;font-weight:700;display:flex;align-items:center;gap:8px;transition:all .2s;white-space:nowrap;box-shadow:0 0 10px rgba(0,229,255,0.15)}
+.nav-btn:hover{background:rgba(0,229,255,0.15);box-shadow:0 0 16px rgba(0,229,255,0.25)}
+.nav-arrow{font-size:11px;transition:transform .2s;display:inline-block;opacity:.8}
+.nav-drop.open .nav-arrow{transform:rotate(180deg)}
+.nav-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--panel);border:1px solid var(--accent);border-radius:4px;overflow:hidden;z-index:999;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.8),0 0 20px rgba(0,229,255,.1)}
+.nav-drop.open .nav-menu{display:block}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 16px;font-family:var(--mono);font-size:12px;color:var(--text);text-decoration:none;letter-spacing:1px;font-weight:700;transition:background .15s,color .15s;border-bottom:1px solid var(--border);white-space:nowrap}
+.nav-item:last-child{border-bottom:none}
+.nav-item:hover{background:rgba(0,229,255,.08);color:var(--accent)}
+.nav-item.active{color:var(--accent);background:rgba(0,229,255,.06)}
+.nav-item-name{flex:1}
+.nav-status{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:1px}
+.nav-sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.nav-sdot.running{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.2s infinite}
+.nav-sdot.done{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+::-webkit-scrollbar{width:3px;height:4px}::-webkit-scrollbar-thumb{background:var(--border)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="index.html">← BACK</a>
+  <div class="top-logo">LAB<span>//</span>TEST MONITOR</div>
+    <!-- 下拉選單 -->
+  <div class="nav-drop" id="navDrop">
+    <button class="nav-btn" onclick="toggleNav()">
+      ▤ &nbsp;切換測試項目 <span class="nav-arrow">▾</span>
+    </button>
+    <div class="nav-menu" id="navMenu">
+      <a class="nav-item" href="motor.html">
+        <span>⚡</span><span class="nav-item-name">馬達特性曲線測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-motor"></span><span id="nt-motor" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item active" href="noise.html">
+        <span>🔊</span><span class="nav-item-name">噪音與振動測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-noise"></span><span id="nt-noise" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="gear.html">
+        <span>⚙️</span><span class="nav-item-name">齒輪箱效率測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-gear"></span><span id="nt-gear" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="torque.html">
+        <span>🔧</span><span class="nav-item-name">產品扭力測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-life"></span><span id="nt-life" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="life.html">
+        <span>⏱️</span><span class="nav-item-name">產品壽命測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-lifenew"></span><span id="nt-lifenew" style="color:var(--muted)">IDLE</span></span>
+      </a>
+    </div>
+  </div>
+    <button class="demo-btn" id="demoBtn" onclick="startDemoManually()">&#9654; 觀看 DEMO</button>
+  <div class="top-sep"></div>
+  <div class="live-badge">
+    <div class="live-dot" id="live-dot"></div>
+    <span id="live-txt" style="color:var(--muted)">IDLE</span>
+  </div>
+  <div class="top-host" id="top-host">HOST 192.168.50.169:5000</div>
+  <div class="top-clock" id="clock">--:--:--</div>
+</div>
+
+<div class="body-grid">
+
+  <!-- LEFT -->
+  <div class="left-col">
+
+    <div class="info-strip">
+
+      <!-- basic info -->
+      <div class="info-panel">
+        <div>
+          <div class="sec-lbl">Test Summary</div>
+          <div class="sum-title">噪音<br>振動測試</div>
+          <div class="info-grid">
+            <div class="ig-key">型號</div><div class="ig-val" id="l-model">---</div>
+            <div class="ig-key">麥克風距離</div><div class="ig-val" id="l-mic-dist">---</div>
+            <div class="ig-key">麥克風方向</div><div class="ig-val" id="l-mic-dir">---</div>
+            <div class="ig-key">加速規位置</div><div class="ig-val" id="l-acc-pos">---</div>
+          </div>
+        </div>
+        <div class="status-pill" id="status-pill">
+          <div class="sp-dot" id="sp-dot"></div>
+          <div class="sp-info">
+            <div class="sp-txt" id="sp-txt">IDLE</div>
+            <div class="sp-sub" id="sp-sub">等待測試開始</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- measure status -->
+      <div class="measure-panel">
+
+        <!-- Background Noise -->
+        <div class="meas-section">
+          <div class="meas-hdr">
+            <div class="state-dot" id="dot-bg"></div>
+            <div class="meas-title" id="title-bg">Background Noise</div>
+          </div>
+          <div class="bg-val-row">
+            <div class="bg-val" id="val-bg-leq">---</div>
+            <div class="bg-unit">Leq (dBA)</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Industrial Noise & Vibration -->
+        <div class="meas-section">
+          <div class="meas-hdr">
+            <div class="state-dot" id="dot-ind"></div>
+            <div class="meas-title" id="title-ind">Industrial Noise & Vibration</div>
+          </div>
+          <div class="ind-grid">
+            <div class="ind-box noise">
+              <div class="ind-lbl">Leq</div>
+              <div class="ind-val" id="val-ind-leq">---</div>
+              <div class="ind-unit">dBA</div>
+            </div>
+            <div class="ind-box noise">
+              <div class="ind-lbl">Run Leq</div>
+              <div class="ind-val" id="val-ind-run">---</div>
+              <div class="ind-unit">dBA</div>
+            </div>
+            <div class="ind-box noise">
+              <div class="ind-lbl">Max</div>
+              <div class="ind-val" id="val-ind-max">---</div>
+              <div class="ind-unit">dBA</div>
+            </div>
+            <div class="ind-box vib">
+              <div class="ind-lbl">RMS</div>
+              <div class="ind-val" id="val-vib-rms">---</div>
+              <div class="ind-unit">g</div>
+            </div>
+            <div class="ind-box vib">
+              <div class="ind-lbl">Run RMS</div>
+              <div class="ind-val" id="val-vib-run">---</div>
+              <div class="ind-unit">g</div>
+            </div>
+            <div class="ind-box vib">
+              <div class="ind-lbl">Max</div>
+              <div class="ind-val" id="val-vib-max">---</div>
+              <div class="ind-unit">g</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end info-strip -->
+
+    <!-- charts -->
+    <div class="charts-area">
+      <div class="chart-block">
+        <div class="chart-lbl">噪音 SPL (dBA) — <span style="color:var(--green)">— Run Leq</span> <span style="color:var(--yellow)">-- Leq</span></div>
+        <div class="chart-wrap"><canvas id="chartNoise"></canvas></div>
+      </div>
+      <div class="chart-block">
+        <div class="chart-lbl" id="vib-chart-lbl">振動加速度 (g) — <span style="color:#2196f3">— Run RMS</span> <span style="color:var(--orange)">-- RMS</span></div>
+        <div class="chart-wrap"><canvas id="chartVib"></canvas></div>
+      </div>
+      <!-- shared scrollbar -->
+      <div class="scroll-wrap">
+        <label>TIME</label>
+        <input type="range" id="scrollBar" min="0" max="0" value="0">
+        <label id="scroll-time-lbl" style="min-width:70px;text-align:right">0 s</label>
+      </div>
+    </div>
+
+  </div><!-- end left-col -->
+
+  <!-- RIGHT: CCD -->
+  <div class="ccd-area">
+    <div class="ccd-hdr">
+      <div class="ccd-hdr-txt">CCD FEED — LIVE STREAM</div>
+      <div class="rec" id="rec"><div class="rec-dot"></div>REC</div>
+    </div>
+    <div class="ccd-body">
+      <span class="no-sig" id="no-sig">NO SIGNAL</span>
+      <img id="ccd-img" alt="CCD">
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+function toggleNav(){
+  const d=document.getElementById("navDrop");
+  d.classList.toggle("open");
+}
+document.addEventListener("click", e=>{
+  const d=document.getElementById("navDrop");
+  if(!d.contains(e.target)) d.classList.remove("open");
+});
+
+const NAV_KEYS = ['motor','noise','gear','life','lifenew'];
+async function pollNavStatus(){
+  try{
+    const res = await fetch(`${FLASK}/api/status`);
+    const d = await res.json();
+    NAV_KEYS.forEach(k=>{
+      const s = (d[k]||'idle').toLowerCase();
+      const dot = document.getElementById(`ns-${k}`);
+      const txt = document.getElementById(`nt-${k}`);
+      if(!dot||!txt) return;
+      if(s.includes('run')){
+        dot.className='nav-sdot running'; txt.textContent='RUNNING'; txt.style.color='var(--green)';
+      } else if(s.includes('done')){
+        dot.className='nav-sdot done'; txt.textContent='DONE'; txt.style.color='var(--accent)';
+      } else {
+        dot.className='nav-sdot'; txt.textContent='IDLE'; txt.style.color='var(--muted)';
+      }
+    });
+  }catch(e){}
+}
+setInterval(pollNavStatus, 2000);
+pollNavStatus();
+
+const FLASK = "https://web-production-0ed68.up.railway.app";
+let demoRunning = false;
+document.getElementById("top-host").textContent = "HOST " + FLASK.replace("http://","");
+
+setInterval(()=>{
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("zh-TW",{hour12:false});
+},1000);
+
+function fv(v,d){return(v==null||isNaN(v))?'---':Number(v).toFixed(d)}
+function setT(id,v){const el=document.getElementById(id);if(el)el.textContent=v}
+
+// ── Charts ──
+const WINDOW_SEC = 60;
+let timeInterval = 1;
+
+function makeChart(id, c1, c2, yLabel){
+  return new Chart(document.getElementById(id),{
+    type:'line',
+    data:{datasets:[
+      {label:'即時',data:[],borderColor:c1,borderWidth:1.5,pointRadius:0,tension:0,fill:false},
+      {label:'Run', data:[],borderColor:c2,borderWidth:1.5,pointRadius:0,tension:0,borderDash:[5,3],fill:false},
+    ]},
+    options:{
+      animation:false,responsive:true,maintainAspectRatio:false,
+      spanGaps:false,
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'rgba(12,16,24,.95)',borderColor:'#1a2235',borderWidth:1,
+        titleFont:{family:'Share Tech Mono',size:12,weight:'bold'},
+        bodyFont:{family:'Share Tech Mono',size:12,weight:'bold'},
+        titleColor:'#dde6f0',bodyColor:'#4a6080',
+        callbacks:{title:items=>`t = ${Number(items[0].parsed.x).toFixed(1)} s`}
+      }},
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Time (s)',color:'#dde6f0',font:{family:'Share Tech Mono',size:12,weight:'bold'}},
+          ticks:{color:'#dde6f0',font:{family:'Share Tech Mono',size:12,weight:'bold'},maxTicksLimit:8},
+          grid:{color:'rgba(255,255,255,0.5)',lineWidth:1}},
+        y:{
+          title:{display:true,text:yLabel,color:'#dde6f0',font:{family:'Share Tech Mono',size:12,weight:'bold'}},
+          ticks:{color:'#dde6f0',font:{family:'Share Tech Mono',size:12,weight:'bold'},maxTicksLimit:6},
+          grid:{color:'rgba(255,255,255,0.5)',lineWidth:1}}
+      }
+    }
+  });
+}
+
+const chartNoise = makeChart('chartNoise','#39ff8a','#ffd600','dBA');
+const chartVib   = makeChart('chartVib',  '#2196f3','#ff8c00','g');
+
+let noiseInst=[], noiseRun=[], vibInst=[], vibRun=[];
+let scrollLocked = true;
+
+const scrollBar = document.getElementById('scrollBar');
+const scrollLbl = document.getElementById('scroll-time-lbl');
+
+scrollBar.addEventListener('input', function(){
+  scrollLocked = (parseInt(this.value) === parseInt(this.max));
+  redrawCharts();
+});
+
+function redrawCharts(){
+  const totalPts = noiseInst.length;
+  const winPts = Math.ceil(WINDOW_SEC / timeInterval);
+  const maxScroll = Math.max(0, totalPts - winPts);
+
+  scrollBar.max = maxScroll;
+  if(scrollLocked) scrollBar.value = maxScroll;
+
+  const offset = parseInt(scrollBar.value);
+  const tStart = offset * timeInterval;
+  const tEnd = tStart + WINDOW_SEC;
+  scrollLbl.textContent = `${tStart.toFixed(0)}–${tEnd.toFixed(0)} s`;
+
+  function slice(arr){ return arr.slice(offset, offset+winPts).map((y,i)=>({x:(offset+i)*timeInterval,y})); }
+
+  chartNoise.data.datasets[0].data = slice(noiseInst);
+  chartNoise.data.datasets[1].data = slice(noiseRun);
+  chartVib.data.datasets[0].data   = slice(vibInst);
+  chartVib.data.datasets[1].data   = slice(vibRun);
+  chartNoise.update('none');
+  chartVib.update('none');
+}
+
+// ── State ──
+let lastState = '';
+let hasVibration = true;   // 布林旗標：T(true/預設)=噪音+振動；F(false)=兩個都是噪音(第二欄顯示成「噪音2」)
+let lastVibMode = null;
+
+// 依 hasVibration 切換第二欄的顯示：true=振動(g)、false=噪音2(dBA)
+function syncVibMode(){
+  if(lastVibMode === hasVibration) return;   // 沒變就不用重畫
+  lastVibMode = hasVibration;
+
+  const lbls  = document.querySelectorAll('.ind-box.vib .ind-lbl');   // RMS / Run RMS / Max
+  const units = document.querySelectorAll('.ind-box.vib .ind-unit');  // g / dBA
+  if(hasVibration){
+    if(lbls[0]) lbls[0].textContent='RMS';
+    if(lbls[1]) lbls[1].textContent='Run RMS';
+    if(lbls[2]) lbls[2].textContent='Max';
+    units.forEach(u=>u.textContent='g');
+  } else {
+    if(lbls[0]) lbls[0].textContent='Leq2';
+    if(lbls[1]) lbls[1].textContent='Run Leq2';
+    if(lbls[2]) lbls[2].textContent='Max2';
+    units.forEach(u=>u.textContent='dBA');
+  }
+
+  const chartLbl = document.getElementById('vib-chart-lbl');
+  if(chartLbl){
+    chartLbl.innerHTML = hasVibration
+      ? '振動加速度 (g) — <span style="color:#2196f3">— Run RMS</span> <span style="color:var(--orange)">-- RMS</span>'
+      : '噪音2 SPL (dBA) — <span style="color:#2196f3">— Run Leq2</span> <span style="color:var(--orange)">-- Leq2</span>';
+  }
+
+  if(typeof chartVib!=='undefined' && chartVib){
+    chartVib.options.scales.y.title.text = hasVibration ? 'g' : 'dBA';
+    chartVib.update('none');
+  }
+}
+
+function updateUI(d){
+  syncDemoBtn((d.done === false) && !d.demo);
+  if(demoRunning && !d.demo && d.done === false) demoRunning=false;
+  // 布林旗標：LabVIEW 傳 has_vibration（接受 true/false 或 'T'/'F' 字串），沒傳就沿用上一次的值
+  if(d.has_vibration !== undefined){
+    hasVibration = !(d.has_vibration===false || d.has_vibration==='F' || d.has_vibration===0 || d.has_vibration==='false');
+  }
+  syncVibMode();
+  const isDemo = !!d.demo;
+  const state = d.state || 'idle';
+  const isInd     = state==='ind';
+  const isIndStop = state==='ind_stop';
+  const isBg      = state==='bg';
+  const isDone = d.done === true;
+  const isRun  = d.done === false;  // None=IDLE, false=RUNNING, true=DONE
+
+  // topbar - 跟馬達測試一樣，用 done 判斷
+  const ld=document.getElementById("live-dot"), lt=document.getElementById("live-txt");
+  if(isDone && isDemo){ ld.className='live-dot done'; ld.style.background='var(--yellow)'; ld.style.boxShadow='0 0 8px var(--yellow)'; lt.textContent='DEMO'; lt.style.color='var(--yellow)'; }
+  else if(isDone){ ld.className='live-dot done'; ld.style.background=''; ld.style.boxShadow=''; lt.textContent='DONE'; lt.style.color='var(--accent)'; }
+  else if(isRun){ ld.className='live-dot ind'; lt.textContent=isDemo?'DEMO':'LIVE'; lt.style.color=isDemo?'var(--yellow)':'var(--green)'; }
+  else{ ld.className='live-dot'; lt.textContent='IDLE'; lt.style.color='var(--muted)'; }
+
+  document.getElementById("rec").className = 'rec' + ((isBg||isInd)?' show':'');
+
+  // Status pill
+  const pill=document.getElementById("status-pill"),dot=document.getElementById("sp-dot");
+  const txt=document.getElementById("sp-txt"),sub=document.getElementById("sp-sub");
+  if(isDone && isDemo){
+    pill.className='status-pill done';dot.className='sp-dot done';dot.style.background='var(--yellow)';dot.style.boxShadow='0 0 8px var(--yellow)';
+    txt.className='sp-txt';txt.textContent='DEMO';txt.style.color='var(--yellow)';sub.textContent='DEMO 已完成';
+  } else if(isDone){
+    pill.className='status-pill done';dot.className='sp-dot done';dot.style.background='';dot.style.boxShadow='';
+    txt.className='sp-txt done';txt.textContent='COMPLETED';txt.style.color='';sub.textContent='測試已完成';
+  } else if(isRun){
+    pill.className='status-pill running';dot.className='sp-dot running';
+    txt.className='sp-txt running';txt.textContent=isDemo?'DEMO':'RUNNING';
+    sub.textContent='更新 '+new Date().toLocaleTimeString("zh-TW",{hour12:false});
+  } else {
+    pill.className='status-pill';dot.className='sp-dot';
+    txt.className='sp-txt';txt.textContent='IDLE';sub.textContent='等待測試開始';
+  }
+
+  // BG state dot - 只有測量中才亮，其他都暗
+  const dotBg=document.getElementById('dot-bg'), titleBg=document.getElementById('title-bg');
+  if(isBg){ dotBg.className='state-dot active-bg'; titleBg.className='meas-title active-bg'; }
+  else{ dotBg.className='state-dot'; titleBg.className='meas-title'; }
+
+  // IND state dot - 只有測量中才亮，其他都暗
+  const dotInd=document.getElementById('dot-ind'), titleInd=document.getElementById('title-ind');
+  if(isInd){ dotInd.className='state-dot active-ind'; titleInd.className='meas-title active-ind'; }
+  else{ dotInd.className='state-dot'; titleInd.className='meas-title'; } // 暗燈
+
+  // Basic info
+  setT('l-model',   d.model||'---');
+  setT('l-mic-dist', d.mic_distance!=null ? fv(d.mic_distance,2)+' m' : '---');
+  setT('l-mic-dir',  d.mic_direction||'---');
+  setT('l-acc-pos',  d.acc_position||'---');
+
+  // BG value
+  setT('val-bg-leq', fv(d.bg_leq,1));
+
+  // IND values - always update, show --- when null (NaN already converted to null by server)
+  if(isInd || isIndStop || isDone){
+    setT('val-ind-leq', fv(d.ind_leq,1));
+    setT('val-ind-run', fv(d.ind_run_leq,1));
+    setT('val-ind-max', fv(d.ind_max,1));
+    setT('val-vib-rms', fv(d.vib_rms,1));
+    setT('val-vib-run', fv(d.vib_run_rms,1));
+    setT('val-vib-max', fv(d.vib_max,1));
+  }
+
+  // Time interval
+  if(d.time_interval!=null && d.time_interval>0) timeInterval=Number(d.time_interval);
+
+  // Chart data - use full history from server
+  function safeNum(v){ if(v==null) return null; const n=Number(v); return isNaN(n)?null:n; }
+  if((isInd||isIndStop||isDone) && d.history && d.history.length > noiseInst.length){
+    // Append new points from history
+    const newPts = d.history.slice(noiseInst.length);
+    newPts.forEach(h=>{
+      noiseInst.push(safeNum(h.run_leq));  // 綠實線 = 即時值 (Run Leq)
+      noiseRun.push(safeNum(h.leq));       // 黃虛線 = 平均值 (Leq)
+      vibInst.push(safeNum(h.run_vib));    // 實線 = 即時 RMS (Run RMS)
+      vibRun.push(safeNum(h.vib));         // 虛線 = 平均 RMS (RMS)
+    });
+    redrawCharts();
+  }
+
+  // Clear chart when ind_clear=true
+  if(d.ind_clear===true){
+    noiseInst=[]; noiseRun=[]; vibInst=[]; vibRun=[];
+    // Also reset history pointer
+    // Clear display values
+    ['val-bg-leq','val-ind-leq','val-ind-run','val-ind-max','val-vib-rms','val-vib-run','val-vib-max'].forEach(id=>setT(id,'---'));
+    scrollLocked=true;
+    redrawCharts();
+  }
+
+  lastState = state;
+}
+
+// CCD
+const ccdImg=document.getElementById("ccd-img"), noSig=document.getElementById("no-sig");
+ccdImg.onload=()=>{ccdImg.style.display='block';noSig.style.display='none';};
+ccdImg.onerror=()=>{ccdImg.style.display='none';noSig.style.display='block';};
+function refreshCCD(){ ccdImg.src=`${FLASK}/stream?t=${Date.now()}`; }
+refreshCCD();
+setInterval(refreshCCD, 1000);
+
+async function poll(){
+  try{
+    const res=await fetch(`${FLASK}/api/noise/data`);
+    const j=await res.json();
+    const st=String(j.status||'idle').toLowerCase();
+    const hasData = (j.state && j.state!=="idle") || j.done===true || j.done===false || j.cycles!=null || j.n_rpm!=null || j.rpm!=null || (j.history&&j.history.length);
+    if(demoRunning){
+      // demo 進行中：noise 沒有 status 欄位，用 done===false 判斷「真的在測試中」；
+      // 舊的已完成紀錄(done=true)或idle都不打斷
+      if(j.done !== false) return;
+    } else if(!hasData){
+      return;
+    }
+    updateUI(j);
+  }catch(e){}
+}
+
+function syncDemoBtn(realRunning){
+  const btn=document.getElementById('demoBtn');
+  if(!btn) return;
+  if(demoRunning){ btn.disabled=true; btn.textContent='\u25CF DEMO 進行中'; }
+  else if(realRunning){ btn.disabled=true; btn.textContent='\u25CF 測試進行中'; }
+  else { btn.disabled=false; btn.textContent='\u25B6 觀看 DEMO'; }
+}
+function startDemoManually(){
+  if(demoRunning) return;
+  runDemo();
+  syncDemoBtn(false);
+}
+
+function runDemo(){
+  demoRunning=true;
+  let t=0;
+  let phase='idle'; // idle -> bg -> ind -> done
+  let phaseT=0;
+  const history=[];
+  const bgLeq=33.4;
+
+  function step(){
+    if(!demoRunning) return;
+    t++; phaseT++;
+    let d={state:phase, done:false, demo:true, model:'Product-A1',
+      mic_distance:1.0, mic_direction:'Front', acc_position:'Top', time_interval:1};
+
+    if(phase==='idle' && phaseT>=2){ phase='bg'; phaseT=0; }
+    else if(phase==='bg'){
+      d.bg_leq=bgLeq+(Math.random()-0.5)*0.5;
+      if(phaseT>=8){ phase='ind'; phaseT=0; }
+    } else if(phase==='ind'){
+      d.bg_leq=bgLeq;
+      // Run Leq = 即時值（當下瞬時讀數，上下波動）
+      const runLeq = 41.2 + Math.sin(phaseT*0.3)*1.5 + (Math.random()-0.5)*1.2;
+      const runVib = 0.11 + Math.abs(Math.sin(phaseT*0.5))*0.15 + (Math.random()-0.5)*0.04;
+      // Leq = 整段累積平均（把當前即時值納入後對全段取平均，會越來越平滑）
+      const allLeq = history.map(h=>h.run_leq).concat(runLeq);
+      const allVib = history.map(h=>h.run_vib).concat(runVib);
+      const leq = allLeq.reduce((a,b)=>a+b,0)/allLeq.length;
+      const vib = allVib.reduce((a,b)=>a+b,0)/allVib.length;
+      // 上區塊：Leq 欄顯示平均、Run Leq 欄顯示即時
+      d.ind_leq=leq; d.ind_run_leq=runLeq; d.ind_max=44.0+(Math.random()-0.5)*0.3;
+      d.vib_rms=vib; d.vib_run_rms=runVib; d.vib_max=0.26+(Math.random()-0.5)*0.05;
+      history.push({leq:leq,run_leq:runLeq,vib:vib,run_vib:runVib});
+      d.history=history.slice();
+      if(phaseT>=80){ phase='done'; phaseT=0; }
+    } else if(phase==='done'){
+      const last=history[history.length-1]||{};
+      d.done=true; d.bg_leq=bgLeq; d.history=history.slice();
+      // 保留最後一筆即時數據，避免完成後數據欄清空
+      d.ind_leq=last.leq; d.ind_run_leq=last.run_leq; d.ind_max=44.0;
+      d.vib_rms=last.vib; d.vib_run_rms=last.run_vib; d.vib_max=0.26;
+      updateUI(d);
+      return;
+    }
+
+    updateUI(d);
+    setTimeout(step,104);
+  }
+  setTimeout(step,600);
+}
+
+(async()=>{
+  // poll 常駐輪詢；真實資料一進來就會停 demo
+  setInterval(poll,400);
+  try{
+    const r=await fetch(`${FLASK}/api/noise/data`,{signal:AbortSignal.timeout(1500)});
+    if(r.ok){
+      const j=await r.json();
+      const st=String(j.status||'idle').toLowerCase();
+      const hasData = (j.state && j.state!=="idle") || j.done===true || j.done===false || j.cycles!=null || j.n_rpm!=null || j.rpm!=null || (j.history&&j.history.length);
+      if(hasData){ updateUI(j); }   // 有測試或前一筆紀錄 → 顯示紀錄
+      // 無測試無紀錄 → 保持 IDLE，不自動跑 demo；使用者可按「觀看 DEMO」按鈕
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

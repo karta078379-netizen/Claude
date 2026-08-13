@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>壽命測試</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#07090d;--panel:#0c1018;--border:#1a2235;
+  --accent:#00e5ff;--green:#39ff8a;--red:#ff3b5c;
+  --yellow:#ffd600;--orange:#ff8c00;--purple:#c084fc;
+  --muted:#8aa4c0;--text:#dde6f0;
+  --mono:'Share Tech Mono',monospace;--body:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-weight:600;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{height:48px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px}
+.back{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px;letter-spacing:1px;font-weight:700;transition:all .2s;text-decoration:none}
+.back:hover{border-color:var(--accent);color:var(--accent)}
+.top-logo{font-family:var(--mono);font-size:13px;letter-spacing:3px;color:var(--accent);font-weight:700}
+.top-logo span{color:var(--muted)}
+.top-sub{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:700;letter-spacing:1px}
+.top-sep{flex:1}
+.demo-btn{
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;
+  color:var(--yellow);background:rgba(255,214,0,.08);
+  border:1px solid rgba(255,214,0,.35);border-radius:4px;
+  padding:7px 14px;cursor:pointer;text-transform:uppercase;
+  transition:all .2s;white-space:nowrap;
+}
+.demo-btn:hover:not(:disabled){background:rgba(255,214,0,.16);box-shadow:0 0 12px rgba(255,214,0,.25)}
+.demo-btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+
+.live-badge{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:700}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all .3s}
+.live-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.3s infinite}
+.live-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.top-host{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;padding-left:16px;border-left:1px solid var(--border)}
+.top-clock{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700}
+
+/* BODY: Left (info+chart) 1fr | Right (CCD) 1fr */
+.body-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;min-height:0}
+
+/* ══ LEFT COL ══ */
+.left-col{display:flex;flex-direction:column;overflow:hidden;min-height:0;border-right:1px solid var(--border)}
+
+/* top info strip */
+.info-strip{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--border);display:flex;flex-direction:row}
+
+/* left: title + status + duration */
+.info-panel{flex:0 0 200px;padding:14px;display:flex;flex-direction:column;gap:10px;border-right:1px solid var(--border)}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase;padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:3px}
+.sum-title{font-size:22px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:6px}
+.info-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:baseline}
+.ig-key{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+.ig-val{font-family:var(--mono);font-size:15px;color:var(--text);font-weight:700}
+
+.status-pill{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:3px;background:rgba(74,96,128,.08);border:1px solid rgba(74,96,128,.25);transition:all .4s}
+.status-pill.running{background:rgba(57,255,138,.07);border-color:rgba(57,255,138,.3)}
+.status-pill.done{background:rgba(0,229,255,.07);border-color:rgba(0,229,255,.25)}
+.sp-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.sp-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.2s infinite}
+.sp-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+.sp-info{display:flex;flex-direction:column;gap:1px}
+.sp-txt{font-family:var(--mono);font-size:14px;letter-spacing:2px;font-weight:700;text-transform:uppercase;color:var(--muted)}
+.sp-txt.running{color:var(--green)}.sp-txt.done{color:var(--accent)}
+.sp-sub{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700}
+
+.dur-box{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:7px 9px;text-align:center}
+.dur-val{font-family:var(--mono);font-size:19px;color:var(--text);font-weight:700;letter-spacing:3px}
+.dur-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+
+/* right: live data panel */
+.data-panel{flex:1;background:#000c18;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:10px;overflow:hidden}
+.stats-box{padding-top:8px;border-top:1px solid var(--border)}
+.stats-sec{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase;margin-bottom:6px}
+.stats-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.stats-table th{color:var(--text);font-size:10px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.5);text-align:right;font-weight:700;background:rgba(26,34,53,.3)}
+.stats-table th:first-child{text-align:left}
+.stats-table td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.5);text-align:right;color:var(--text);font-weight:700}
+.stats-table td:first-child{text-align:left;color:var(--muted);font-size:11px;font-weight:700}
+.stats-table td.cw{color:#2196f3}
+.stats-table td.ccw{color:#ff8c00}
+.stats-table td.mtemp{color:var(--red)}
+.stats-table td.rtemp{color:var(--orange)}
+.stats-table td.diff{color:#c084fc}
+.stats-table tbody tr:last-child td{border:none}
+.data-grid{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.data-box{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:8px 10px;position:relative;overflow:hidden}
+.data-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border)}
+.db-lbl{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.db-val{font-family:var(--mono);font-size:25px;color:var(--text);font-weight:700;line-height:1}
+.db-unit{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+
+/* chart area */
+.chart-area{flex:1;padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px;overflow:hidden;min-height:0}
+.chart-hdr{flex-shrink:0;display:flex;align-items:center;gap:10px}
+.chart-sec{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.legends{display:flex;gap:12px;margin-left:auto}
+.leg{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text);font-weight:700}
+.leg-line{width:14px;height:2px;border-radius:1px}
+.chart-wrap{flex:1;position:relative;min-height:0}
+
+/* ══ RIGHT: CCD ══ */
+.ccd-area{background:#000;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.ccd-hdr{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px}
+.ccd-hdr-txt{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.rec{display:none;align-items:center;gap:5px;background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.4);border-radius:2px;padding:3px 9px;font-family:var(--mono);font-size:10px;color:var(--red);font-weight:700;letter-spacing:2px}
+.rec.show{display:flex}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);animation:pulse .8s infinite}
+.ccd-body{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ccd-body::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:3}
+.ccd-body::after{content:'';position:absolute;inset:16px;pointer-events:none;z-index:2;opacity:.45;background:linear-gradient(var(--accent),var(--accent)) top left/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) top left/1px 24px no-repeat,linear-gradient(var(--accent),var(--accent)) top right/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) top right/1px 24px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom left/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom left/1px 24px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom right/24px 1px no-repeat,linear-gradient(var(--accent),var(--accent)) bottom right/1px 24px no-repeat}
+#ccd-img{max-width:100%;max-height:100%;object-fit:contain;z-index:1;display:none}
+.no-sig{position:absolute;font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:5px;font-weight:700;text-transform:uppercase;z-index:1}
+
+
+/* nav dropdown */
+.nav-drop{position:relative}
+.nav-btn{
+  background:rgba(0,229,255,0.08);
+  border:1px solid var(--accent);
+  color:var(--accent);
+  font-family:var(--mono);font-size:12px;
+  padding:6px 14px;cursor:pointer;border-radius:3px;
+  letter-spacing:1px;font-weight:700;
+  display:flex;align-items:center;gap:8px;
+  transition:all .2s;white-space:nowrap;
+  box-shadow:0 0 10px rgba(0,229,255,0.15);
+}
+.nav-btn:hover{background:rgba(0,229,255,0.15);box-shadow:0 0 16px rgba(0,229,255,0.25)}
+.nav-arrow{font-size:11px;transition:transform .2s;display:inline-block;opacity:.8}
+.nav-drop.open .nav-arrow{transform:rotate(180deg)}
+.nav-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--panel);border:1px solid var(--accent);border-radius:4px;overflow:hidden;z-index:999;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.8),0 0 20px rgba(0,229,255,.1)}
+.nav-drop.open .nav-menu{display:block}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 16px;font-family:var(--mono);font-size:12px;color:var(--text);text-decoration:none;letter-spacing:1px;font-weight:700;transition:background .15s,color .15s;border-bottom:1px solid var(--border);white-space:nowrap}
+.nav-item:last-child{border-bottom:none}
+.nav-item:hover{background:rgba(0,229,255,.08);color:var(--accent)}
+.nav-item.active{color:var(--accent);background:rgba(0,229,255,.06)}
+.nav-item-name{flex:1}
+.nav-status{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:1px}
+.nav-sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.nav-sdot.running{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.2s infinite}
+.nav-sdot.done{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="index.html">← BACK</a>
+  <div class="top-logo">LAB<span>//</span>TEST MONITOR</div>
+    <!-- 下拉選單 -->
+  <div class="nav-drop" id="navDrop">
+    <button class="nav-btn" onclick="toggleNav()">
+      ▤ &nbsp;切換測試項目 <span class="nav-arrow">▾</span>
+    </button>
+    <div class="nav-menu" id="navMenu">
+      <a class="nav-item" href="motor.html">
+        <span>⚡</span><span class="nav-item-name">馬達特性曲線測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-motor"></span><span id="nt-motor" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="noise.html">
+        <span>🔊</span><span class="nav-item-name">噪音與振動測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-noise"></span><span id="nt-noise" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="gear.html">
+        <span>⚙️</span><span class="nav-item-name">齒輪箱效率測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-gear"></span><span id="nt-gear" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="torque.html">
+        <span>🔧</span><span class="nav-item-name">產品扭力測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-life"></span><span id="nt-life" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item active" href="life.html">
+        <span>⏱️</span><span class="nav-item-name">產品壽命測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-lifenew"></span><span id="nt-lifenew" style="color:var(--muted)">IDLE</span></span>
+      </a>
+    </div>
+  </div>
+    <button class="demo-btn" id="demoBtn" onclick="startDemoManually()">&#9654; 觀看 DEMO</button>
+  <div class="top-sep"></div>
+  <div class="live-badge">
+    <div class="live-dot" id="live-dot"></div>
+    <span id="live-txt" style="color:var(--muted)">IDLE</span>
+  </div>
+  <div class="top-host" id="top-host">HOST 127.0.0.1:5000</div>
+  <div class="top-clock" id="clock">--:--:--</div>
+</div>
+
+<div class="body-grid">
+
+  <!-- ══ LEFT: info + schematic + chart + table ══ -->
+  <div class="left-col">
+
+    <!-- info strip -->
+    <div class="info-strip">
+
+      <!-- left: title / status / duration -->
+      <div class="info-panel">
+        <div>
+          <div class="sec-lbl">Test Summary</div>
+          <div class="sum-title">壽命<br>測試</div>
+          <div class="info-grid">
+            <div class="ig-key">型號</div><div class="ig-val" id="l-model">---</div>
+          </div>
+        </div>
+        <div class="status-pill" id="status-pill">
+          <div class="sp-dot" id="sp-dot"></div>
+          <div class="sp-info">
+            <div class="sp-txt" id="sp-txt">IDLE</div>
+            <div class="sp-sub" id="sp-sub">等待測試開始</div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-lbl">總測試時長</div>
+          <div class="dur-box">
+            <div class="dur-val" id="duration">00:00:00</div>
+            <div class="dur-lbl">HH : MM : SS</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- right: live data -->
+      <div class="data-panel">
+        <div class="data-grid">
+          <div class="data-box">
+            <div class="db-lbl">Motor Current</div>
+            <div class="db-val" id="sv-current" style="color:var(--accent)">--.-</div>
+            <div class="db-unit">A</div>
+          </div>
+          <div class="data-box">
+            <div class="db-lbl">Cycles</div>
+            <div class="db-val" id="sv-cycles">----</div>
+            <div class="db-unit">cycles</div>
+          </div>
+          <div class="data-box">
+            <div class="db-lbl">Target Cycles</div>
+            <div class="db-val" id="sv-total" style="color:var(--muted)">----</div>
+            <div class="db-unit">cycles</div>
+          </div>
+        </div>
+        <!-- live stats table -->
+        <div class="stats-box">
+          <div class="stats-sec">即時統計</div>
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th>Cycles</th>
+                <th style="color:#2196f3">Rise Max(A)</th>
+                <th style="color:#ff8c00">Fall Max(A)</th>
+                <th style="color:var(--red)">Motor Temp(°C)</th>
+                <th style="color:var(--orange)">Room(°C)</th>
+                <th style="color:#c084fc">Temp Diff(°C)</th>
+              </tr>
+            </thead>
+            <tbody id="stats-tbody">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted);font-size:10px">— Awaiting Data —</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- end info-strip -->
+
+    <!-- chart -->
+    <div class="chart-area">
+      <div class="chart-hdr">
+        <div class="chart-sec">電流與溫度 vs 圈數</div>
+        <div class="legends">
+          <div class="leg"><div class="leg-line" style="background:#2196f3"></div>Rise Current Max</div>
+          <div class="leg"><div class="leg-line" style="background:#ff8c00"></div>Fall Current Max</div>
+          <div class="leg"><div class="leg-line" style="background:#ff3b5c"></div>Motor Temp</div>
+          <div class="leg"><div class="leg-line" style="background:#ffd600"></div>Room</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:0">
+        <div style="flex:1;position:relative;min-height:0">
+          <canvas id="chartRise"></canvas>
+        </div>
+        <div style="flex:1;position:relative;min-height:0">
+          <canvas id="chartFall"></canvas>
+        </div>
+        <div style="flex:1;position:relative;min-height:0">
+          <canvas id="chartTemp"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end left-col -->
+
+  <!-- ══ RIGHT: CCD ══ -->
+  <div class="ccd-area">
+    <div class="ccd-hdr">
+      <div class="ccd-hdr-txt">CCD FEED — LIVE STREAM</div>
+      <div class="rec" id="rec"><div class="rec-dot"></div>REC</div>
+    </div>
+    <div class="ccd-body">
+      <span class="no-sig" id="no-sig">NO SIGNAL</span>
+      <img id="ccd-img" alt="CCD">
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+function toggleNav(){
+  const d=document.getElementById("navDrop");
+  d.classList.toggle("open");
+}
+document.addEventListener("click", e=>{
+  const d=document.getElementById("navDrop");
+  if(!d.contains(e.target)) d.classList.remove("open");
+});
+
+const NAV_KEYS = ['motor','noise','gear','life','lifenew'];
+async function pollNavStatus(){
+  try{
+    const res = await fetch(`${FLASK}/api/status`);
+    const d = await res.json();
+    NAV_KEYS.forEach(k=>{
+      const s = (d[k]||'idle').toLowerCase();
+      const dot = document.getElementById(`ns-${k}`);
+      const txt = document.getElementById(`nt-${k}`);
+      if(!dot||!txt) return;
+      if(s.includes('run')){
+        dot.className='nav-sdot running'; txt.textContent='RUNNING'; txt.style.color='var(--green)';
+      } else if(s.includes('done')){
+        dot.className='nav-sdot done'; txt.textContent='DONE'; txt.style.color='var(--accent)';
+      } else {
+        dot.className='nav-sdot'; txt.textContent='IDLE'; txt.style.color='var(--muted)';
+      }
+    });
+  }catch(e){}
+}
+setInterval(pollNavStatus, 2000);
+pollNavStatus();
+
+const FLASK = "https://web-production-0ed68.up.railway.app";
+document.getElementById("top-host").textContent = "HOST " + FLASK.replace("http://","");
+
+setInterval(()=>{
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("zh-TW",{hour12:false});
+},1000);
+
+let startTs=null, frozenDuration=null, lastStatus='', pageJustLoaded=true;
+let demoRunning = false;
+setInterval(()=>{
+  if(frozenDuration!=null){
+    document.getElementById("duration").textContent=frozenDuration;
+    return;
+  }
+  if(!startTs) return;
+  const s=Math.floor((Date.now()-startTs)/1000);
+  document.getElementById("duration").textContent=`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+},1000);
+function pad(n){return String(n).padStart(2,'0')}
+
+// Charts (two stacked)
+function makeChart(id, datasets, titleText, axisColor){
+  return new Chart(document.getElementById(id),{
+    type:'line',
+    data:{datasets:datasets.map(ds=>({label:ds.label,data:[],borderColor:ds.color,borderWidth:1.5,pointRadius:0,tension:.2,fill:false}))},
+    options:{
+      animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},title:{display:true,text:titleText,color:axisColor,font:{family:'Share Tech Mono',size:12,weight:'bold'},padding:{bottom:4}},tooltip:{
+        backgroundColor:'rgba(12,16,24,.95)',borderColor:'#1a2235',borderWidth:1,
+        titleFont:{family:'Share Tech Mono',size:12,weight:'bold'},
+        bodyFont:{family:'Share Tech Mono',size:12,weight:'bold'},
+        titleColor:'#dde6f0',bodyColor:'#4a6080',
+        callbacks:{title:items=>`Cycles: ${Number(items[0].parsed.x).toFixed(0)}`}
+      }},
+      scales:{
+        x:{type:'linear',min:1,
+        afterDataLimits(sc){sc.min=1;if(sc.max<=1)sc.max=10;else sc.max=Math.ceil(sc.max);},
+        title:{display:true,text:'Cycles',color:'#dde6f0',font:{family:'Share Tech Mono',size:12,weight:'bold'}},
+        ticks:{color:'#dde6f0',font:{family:'Share Tech Mono',size:12,weight:'bold'},
+          stepSize:1,precision:0,
+          callback:function(v){return Number.isInteger(v)?String(v):''}},
+        grid:{color:'rgba(255,255,255,0.5)',lineWidth:1}},
+        y:{
+          title:{display:false},
+          ticks:{color:axisColor,font:{family:'Share Tech Mono',size:12,weight:'bold'},maxTicksLimit:5},
+          grid:{color:'rgba(255,255,255,0.5)',lineWidth:1}}
+      }
+    }
+  });
+}
+const chartRise = makeChart('chartRise',
+  [{label:'Rise Max',color:'#2196f3'}],
+  'Rise Current Max (A)', '#2196f3');
+const chartFall = makeChart('chartFall',
+  [{label:'Fall Max',color:'#ff8c00'}],
+  'Fall Current Max (A)', '#ff8c00');
+const chartTemp = makeChart('chartTemp',
+  [{label:'Motor Temp',color:'#ff3b5c'},{label:'Room Temp',color:'#ffd600'}],
+  'Temperature (°C)', '#dde6f0');
+
+let lastCycles=null;
+let isDone=false;
+let historyLoaded=false;
+
+function updateUI(d){
+  syncDemoBtn((String(d.status||'').toLowerCase().includes('run')) && !d.demo);
+  if(demoRunning && !d.demo && String(d.status||'').toLowerCase().includes('run')) demoRunning=false;
+  const isDemo = !!d.demo;
+  const s=(d.status||'idle').toLowerCase();
+  const isDoneNow=!!d.done, isRun=s.includes('run');
+
+  const ld=document.getElementById("live-dot"),lt=document.getElementById("live-txt");
+  if(isDoneNow && isDemo){ld.className='live-dot done';ld.style.background='var(--yellow)';ld.style.boxShadow='0 0 8px var(--yellow)';lt.textContent='DEMO';lt.style.color='var(--yellow)';}
+  else if(isDoneNow){ld.className='live-dot done';ld.style.background='';ld.style.boxShadow='';lt.textContent='DONE';lt.style.color='var(--accent)';}
+  else if(isRun){ld.className='live-dot running';lt.textContent=isDemo?'DEMO':'LIVE';lt.style.color=isDemo?'var(--yellow)':'var(--green)';}
+  else{ld.className='live-dot';lt.textContent='IDLE';lt.style.color='var(--muted)';}
+
+  const pill=document.getElementById("status-pill"),dot=document.getElementById("sp-dot");
+  const txt=document.getElementById("sp-txt"),sub=document.getElementById("sp-sub");
+  if(isDoneNow && isDemo){
+    pill.className='status-pill done';dot.className='sp-dot done';dot.style.background='var(--yellow)';dot.style.boxShadow='0 0 8px var(--yellow)';
+    txt.className='sp-txt';txt.textContent='DEMO';txt.style.color='var(--yellow)';sub.textContent='DEMO 已完成';
+  } else if(isDoneNow){
+    pill.className='status-pill done';dot.className='sp-dot done';dot.style.background='';dot.style.boxShadow='';
+    txt.className='sp-txt done';txt.textContent='COMPLETED';txt.style.color='';sub.textContent='測試已完成';
+  } else if(isRun){
+    pill.className='status-pill running';dot.className='sp-dot running';
+    txt.className='sp-txt running';txt.textContent=isDemo?'DEMO':'RUNNING';
+    sub.textContent='更新 '+new Date().toLocaleTimeString("zh-TW",{hour12:false});
+  } else {
+    pill.className='status-pill';dot.className='sp-dot';
+    txt.className='sp-txt';txt.textContent='IDLE';sub.textContent='等待測試開始';
+  }
+  document.getElementById("rec").className='rec'+(isRun?' show':'');
+  // Sync timer from server start_time
+  if(isRun && d.start_time!=null){
+    const serverStartMs = d.start_time * 1000;
+    if(!startTs || Math.abs(startTs - serverStartMs) > 2000){
+      startTs = serverStartMs;
+    }
+  }
+  if(!isRun && !startTs){ startTs=null; }
+
+  if(isRun&&!lastStatus.includes('run') && !pageJustLoaded){
+    // New test started - clear charts
+    chartRise.data.datasets.forEach(ds=>ds.data=[]);
+    chartRise.update('none');
+    chartFall.data.datasets.forEach(ds=>ds.data=[]);
+    chartFall.update('none');
+    chartTemp.data.datasets.forEach(ds=>ds.data=[]);
+    chartTemp.update('none');
+    lastCycles=null;
+    lastStatsCycles=null;
+    isDone=false;
+    historyLoaded=false;
+    frozenDuration=null;
+    startTs=Date.now(); // 計時開始
+    // Reset SVG displays
+    setSVG("sv-cycles","----");
+    setSVG("sv-current","--.-");
+    document.getElementById('stats-tbody').innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:10px">— Awaiting Data —</td></tr>';
+  }
+  lastStatus=s;
+  pageJustLoaded=false;
+
+  setT('l-model',d.model||'---');
+
+  // Values
+  setSVG('sv-cycles',     fv(d.cycles,0));
+  setSVG('sv-total',      fv(d.total_cycles,0));
+  setSVG('sv-current',    fv(d.load_current,2));
+
+  // 補畫歷史資料（第一次收到時）
+  if(!historyLoaded && d.history && d.history.length>0){
+    historyLoaded=true;
+    d.history.forEach(h=>{
+      chartRise.data.datasets[0].data.push({x:h.cycles,y:h.rise_max});
+      chartFall.data.datasets[0].data.push({x:h.cycles,y:h.fall_max});
+      chartTemp.data.datasets[0].data.push({x:h.cycles,y:h.motor_temp});
+      chartTemp.data.datasets[1].data.push({x:h.cycles,y:h.room_temp});
+    });
+    chartRise.update('none');
+    chartFall.update('none');
+    chartTemp.update('none');
+    // 補統計表最後2筆
+    const last2=d.history.slice(-2);
+    lastStatsCycles=null;
+    last2.forEach(h=>updateStatsRow(h));  // h.temp_diff may be undefined for old history entries
+    lastCycles=d.history[d.history.length-1].cycles;
+  }
+
+  // Chart
+  // 送法：cycles=N 同批送該圈的所有數值，直接畫在 N
+  if(isRun && d.cycles!=null && Number(d.cycles)>0 &&
+     d.rise_max!=null && d.fall_max!=null && d.motor_temp!=null && d.room_temp!=null){
+    const cx=Number(d.cycles);
+    if(cx!==lastCycles){
+      chartRise.data.datasets[0].data.push({x:cx,y:Number(d.rise_max)});
+      chartFall.data.datasets[0].data.push({x:cx,y:Number(d.fall_max)});
+      chartTemp.data.datasets[0].data.push({x:cx,y:Number(d.motor_temp)});
+      chartTemp.data.datasets[1].data.push({x:cx,y:Number(d.room_temp)});
+      chartRise.update('none');
+      chartFall.update('none');
+      chartTemp.update('none');
+      updateStatsRow({cycles:cx,rise_max:d.rise_max,fall_max:d.fall_max,motor_temp:d.motor_temp,room_temp:d.room_temp,temp_diff:d.temp_diff});
+      lastCycles=cx;
+    }
+  }
+
+  // 測試結束，凍結計時器
+  if(isDoneNow && !isDone){
+    isDone=true;
+    if(startTs){
+      const s=Math.floor((Date.now()-startTs)/1000);
+      frozenDuration=`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+    }
+  }
+}
+
+let lastStatsCycles = null;
+function updateStatsRow(h){
+  if(h.cycles==null) return;
+  if(Number(h.cycles) === lastStatsCycles) return;
+  if(Number(h.cycles) <= 0) return;
+  lastStatsCycles = Number(h.cycles);
+  const tbody=document.getElementById("stats-tbody");
+  if(tbody.rows.length===1 && tbody.rows[0].cells.length===1) tbody.deleteRow(0);
+  const diff = h.temp_diff!=null ? h.temp_diff :
+    (h.motor_temp!=null && h.room_temp!=null ? h.motor_temp - h.room_temp : null);
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>${Number(h.cycles).toFixed(0)}</td>`+
+    `<td class="cw">${fv(h.rise_max,2)}</td>`+
+    `<td class="ccw">${fv(h.fall_max,2)}</td>`+
+    `<td class="mtemp">${fv(h.motor_temp,1)}</td>`+
+    `<td class="rtemp">${fv(h.room_temp,1)}</td>`+
+    `<td class="diff">${fv(diff,1)}</td>`;
+  tbody.appendChild(tr);
+  while(tbody.rows.length>6) tbody.deleteRow(0);
+}
+
+async function poll(){
+  try{
+    const res=await fetch(`${FLASK}/api/life/data`);
+    const j=await res.json();
+    const st=String(j.status||'idle').toLowerCase();
+    const hasData = st!=="idle" || j.done || j.cycles!=null || j.n_rpm!=null || j.rpm!=null || (j.history&&j.history.length);
+    if(demoRunning){
+      // demo 進行中：只有「真的開始新測試」(status包含running)才中斷demo；
+      // 舊的已完成紀錄(done)或idle都不打斷，避免demo剛按下就被上次結果蓋掉
+      if(!st.includes('run')) return;
+    } else if(!hasData){
+      return;
+    }
+    updateUI(j);
+  }catch(e){}
+}
+function setT(id,v){const el=document.getElementById(id);if(el)el.textContent=v}
+function setSVG(id,v){const el=document.getElementById(id);if(el)el.textContent=v}
+function fv(v,d){return(v==null)?'---':Number(v).toFixed(d)}
+
+const ccdImg=document.getElementById("ccd-img"),noSig=document.getElementById("no-sig");
+ccdImg.onload=()=>{ccdImg.style.display='block';noSig.style.display='none';};
+ccdImg.onerror=()=>{ccdImg.style.display='none';noSig.style.display='block';};
+function refreshCCD(){ ccdImg.src=`${FLASK}/stream?t=${Date.now()}`; }
+refreshCCD();
+setInterval(refreshCCD, 1000);
+
+
+function syncDemoBtn(realRunning){
+  const btn=document.getElementById('demoBtn');
+  if(!btn) return;
+  if(demoRunning){ btn.disabled=true; btn.textContent='\u25CF DEMO 進行中'; }
+  else if(realRunning){ btn.disabled=true; btn.textContent='\u25CF 測試進行中'; }
+  else { btn.disabled=false; btn.textContent='\u25B6 觀看 DEMO'; }
+}
+function startDemoManually(){
+  if(demoRunning) return;
+  runDemo();
+  syncDemoBtn(false);
+}
+
+function runDemo(){
+  demoRunning=true;
+  let cycle=0;
+  let lastData=null;
+  const total=50;
+
+  function step(){
+    if(!demoRunning) return;
+    cycle++;
+    if(cycle>total){
+      updateUI(Object.assign({}, lastData, {status:'done', done:true, demo:true, model:'Product-A1', total_cycles:total, cycles:total,
+        motor_temp:48.2, room_temp:24.8, temp_diff:23.4, load_current:1.25, rise_max:2.6, fall_max:1.7,
+        start_time:(Date.now()/1000)-total*0.4}));
+      return;
+    }
+    const drift=cycle*0.01;
+    lastData={
+      status:'running', done:false, demo:true, model:'Product-A1', total_cycles:total, cycles:cycle,
+      motor_temp:42+drift+Math.random()*0.5,
+      room_temp:24.5+Math.random()*0.3,
+      temp_diff:(42+drift)-24.5,
+      load_current:1.1+drift*0.3+(Math.random()-0.5)*0.05,
+      rise_max:2.3+drift*0.5+(Math.random()-0.5)*0.1,
+      fall_max:1.6+drift*0.3+(Math.random()-0.5)*0.08,
+      start_time:(Date.now()/1000)-cycle*0.4,
+    };
+    updateUI(lastData);
+    setTimeout(step,188);
+  }
+  setTimeout(step,600);
+}
+
+(async()=>{
+  // poll 常駐輪詢；真實資料一進來就會停 demo
+  setInterval(poll,400);
+  try{
+    const r=await fetch(`${FLASK}/api/life/data`,{signal:AbortSignal.timeout(1500)});
+    if(r.ok){
+      const j=await r.json();
+      const st=String(j.status||'idle').toLowerCase();
+      const hasData = st!=="idle" || j.done || j.cycles!=null || j.n_rpm!=null || j.rpm!=null || (j.history&&j.history.length);
+      if(hasData){ updateUI(j); }   // 有測試或前一筆紀錄 → 顯示紀錄
+      // 無測試無紀錄 → 保持 IDLE，不自動跑 demo；使用者可按「觀看 DEMO」按鈕
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

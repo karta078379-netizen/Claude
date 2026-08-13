@@ -19,5 +19,6 @@ build/
 *.log
 *.sqlite
 
-# Flask 已有獨立 Git 儲存庫
-Flask/
+# 排除 Flask 內嵌的 Git 目錄（檔案仍會備份）
+Flask/.git/
+Flask/.git_backup/

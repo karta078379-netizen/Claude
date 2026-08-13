@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>多馬達壽命測試</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#07090d;--panel:#0c1018;--border:#1a2235;
+  --accent:#00e5ff;--green:#39ff8a;--red:#ff3b5c;
+  --yellow:#ffd600;--orange:#ff8c00;--purple:#c084fc;
+  --muted:#4a6080;--text:#dde6f0;
+  --m1:#00e5ff;--m2:#39ff8a;--m3:#c084fc;
+  --mono:'Share Tech Mono',monospace;--body:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-weight:600;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{height:48px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px}
+.back{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px;letter-spacing:1px;font-weight:700;transition:all .2s;text-decoration:none}
+.back:hover{border-color:var(--accent);color:var(--accent)}
+.top-logo{font-family:var(--mono);font-size:13px;letter-spacing:3px;color:var(--accent);font-weight:700}
+.top-logo span{color:var(--muted)}
+.top-sub{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:700;letter-spacing:1px}
+.top-sep{flex:1}
+.live-badge{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:700}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all .3s}
+.live-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.3s infinite}
+.live-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.top-host{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;padding-left:16px;border-left:1px solid var(--border)}
+.top-clock{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700}
+
+/* BODY: Left 1fr | Right CCD 1fr */
+.body-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;min-height:0}
+
+/* ══ LEFT COL ══ */
+.left-col{display:flex;flex-direction:column;overflow:hidden;min-height:0;border-right:1px solid var(--border)}
+
+/* INFO STRIP */
+.info-strip{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--border);display:flex;flex-direction:row}
+
+.info-panel{flex:0 0 175px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-right:1px solid var(--border)}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase;padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.sum-title{font-size:18px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:4px}
+.info-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:baseline}
+.ig-key{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:700;white-space:nowrap}
+.ig-val{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:700}
+
+.status-pill{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:3px;background:rgba(74,96,128,.08);border:1px solid rgba(74,96,128,.25);transition:all .4s}
+.status-pill.running{background:rgba(57,255,138,.07);border-color:rgba(57,255,138,.3)}
+.status-pill.done{background:rgba(0,229,255,.07);border-color:rgba(0,229,255,.25)}
+.sp-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.sp-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.2s infinite}
+.sp-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+.sp-info{display:flex;flex-direction:column;gap:1px}
+.sp-txt{font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:700;color:var(--muted)}
+.sp-txt.running{color:var(--green)}.sp-txt.done{color:var(--accent)}
+.sp-sub{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:700}
+
+.dur-box{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:6px 9px;text-align:center}
+.dur-val{font-family:var(--mono);font-size:17px;color:var(--text);font-weight:700;letter-spacing:3px}
+.dur-lbl{font-family:var(--mono);font-size:8px;color:var(--muted);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-top:1px}
+
+/* DATA PANEL: cycles + command + motor grid */
+.data-panel{flex:1;background:#000c18;padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+
+/* top row: cycles / total / command */
+.top-row{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;flex-shrink:0}
+.data-box{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:8px 10px;position:relative;overflow:hidden}
+.data-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border)}
+.data-box.ac::after{background:var(--accent)}
+.data-box.mu::after{background:var(--muted)}
+.data-box.gn::after{background:var(--green)}
+.db-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.db-val{font-family:var(--mono);font-size:20px;color:var(--text);font-weight:700;line-height:1}
+.db-unit{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:700;margin-top:2px}
+.cmd-val{font-family:var(--mono);font-size:13px;color:var(--yellow);font-weight:700;line-height:1.4;word-break:break-all}
+
+/* motor grid: 3 cols × 2 rows (V then I) */
+.motor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex-shrink:0}
+.motor-card{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:7px 10px;position:relative;overflow:hidden}
+.motor-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.mc-m1::before{background:var(--m1)}.mc-m2::before{background:var(--m2)}.mc-m3::before{background:var(--m3)}
+.mc-tag{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:4px}
+.mc-tag.m1{color:var(--m1)}.mc-tag.m2{color:var(--m2)}.mc-tag.m3{color:var(--m3)}
+.mc-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.mc-key{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:700}
+.mc-num{font-family:var(--mono);font-size:16px;font-weight:700;line-height:1}
+.mc-num.v{color:var(--yellow)}.mc-num.i{color:var(--orange)}
+
+/* chart area */
+.chart-area{flex:1;padding:8px 12px 6px;display:flex;flex-direction:column;gap:4px;overflow:hidden;min-height:0}
+.chart-hdr{flex-shrink:0;display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.chart-sec{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.legends{display:flex;gap:14px;margin-left:auto}
+.leg{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text);font-weight:700}
+.leg-line{width:16px;height:2px;border-radius:1px}
+.charts-wrap{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0}
+.chart-cell{flex:1;position:relative;min-height:0}
+
+/* ══ RIGHT: CCD ══ */
+.ccd-area{background:#000;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.ccd-hdr{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px}
+.ccd-hdr-txt{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.rec{display:none;align-items:center;gap:5px;background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.4);border-radius:2px;padding:3px 9px;font-family:var(--mono);font-size:10px;color:var(--red);font-weight:700;letter-spacing:2px}
+.rec.show{display:flex}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);animation:pulse .8s infinite}
+.ccd-body{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ccd-body::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:3}
+.ccd-body::after{content:'';position:absolute;inset:16px;pointer-events:none;z-index:2;opacity:.45;
+  background:
+    linear-gradient(var(--accent),var(--accent)) top left/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top left/1px 24px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top right/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top right/1px 24px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left/1px 24px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right/1px 24px no-repeat}
+#ccd-img{max-width:100%;max-height:100%;object-fit:contain;z-index:1;display:none}
+.no-sig{position:absolute;font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:5px;font-weight:700;z-index:1}
+
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="index.html">← BACK</a>
+  <div class="top-logo">LAB<span>//</span>TEST MONITOR</div>
+  <div class="top-sub">Multi-Motor Life Test Monitoring View</div>
+  <div class="top-sep"></div>
+  <div class="live-badge">
+    <div class="live-dot" id="live-dot"></div>
+    <span id="live-txt" style="color:var(--muted)">IDLE</span>
+  </div>
+  <div class="top-host" id="top-host">HOST ---</div>
+  <div class="top-clock" id="clock">--:--:--</div>
+</div>
+
+<div class="body-grid">
+
+  <!-- ══ LEFT ══ -->
+  <div class="left-col">
+
+    <div class="info-strip">
+
+      <!-- title / status / timer -->
+      <div class="info-panel">
+        <div>
+          <div class="sec-lbl">Test Summary</div>
+          <div class="sum-title">多馬達<br>壽命測試</div>
+          <div class="info-grid">
+            <div class="ig-key">型號</div><div class="ig-val" id="l-model">---</div>
+            <div class="ig-key">目標</div><div class="ig-val" id="l-total">---</div>
+          </div>
+        </div>
+        <div class="status-pill" id="status-pill">
+          <div class="sp-dot" id="sp-dot"></div>
+          <div class="sp-info">
+            <div class="sp-txt" id="sp-txt">IDLE</div>
+            <div class="sp-sub" id="sp-sub">等待測試開始</div>
+          </div>
+        </div>
+        <div class="dur-box">
+          <div class="dur-val" id="duration">--:--:--</div>
+          <div class="dur-lbl">Elapsed Time</div>
+        </div>
+      </div>
+
+      <!-- live data panel -->
+      <div class="data-panel">
+
+        <!-- cycles / total / command -->
+        <div class="top-row">
+          <div class="data-box ac">
+            <div class="db-lbl">圈數</div>
+            <div class="db-val" id="sv-cycles" style="color:var(--accent)">----</div>
+            <div class="db-unit">cycles</div>
+          </div>
+          <div class="data-box mu">
+            <div class="db-lbl">目標圈數</div>
+            <div class="db-val" id="sv-total" style="color:var(--muted)">----</div>
+            <div class="db-unit">cycles</div>
+          </div>
+          <div class="data-box gn">
+            <div class="db-lbl">輸出指令</div>
+            <div class="cmd-val" id="sv-cmd">---</div>
+          </div>
+        </div>
+
+        <!-- motor V/I grid -->
+        <div class="motor-grid">
+          <!-- M1 -->
+          <div class="motor-card mc-m1">
+            <div class="mc-tag m1">M1</div>
+            <div class="mc-row">
+              <div class="mc-key">Volt (V)</div>
+              <div class="mc-num v" id="sv-m1v">--.-</div>
+            </div>
+            <div class="mc-row">
+              <div class="mc-key">Curr (A)</div>
+              <div class="mc-num i" id="sv-m1i">--.-</div>
+            </div>
+            <div class="mc-row">
+              <div class="mc-key">Pwr (W)</div>
+              <div class="mc-num" style="color:var(--green);font-size:14px" id="sv-m1p">--.-</div>
+            </div>
+          </div>
+          <!-- M2 -->
+          <div class="motor-card mc-m2">
+            <div class="mc-tag m2">M2</div>
+            <div class="mc-row">
+              <div class="mc-key">Volt (V)</div>
+              <div class="mc-num v" id="sv-m2v">--.-</div>
+            </div>
+            <div class="mc-row">
+              <div class="mc-key">Curr (A)</div>
+              <div class="mc-num i" id="sv-m2i">--.-</div>
+            </div>
+            <div class="mc-row">
+              <div class="mc-key">Pwr (W)</div>
+              <div class="mc-num" style="color:var(--green);font-size:14px" id="sv-m2p">--.-</div>
+            </div>
+          </div>
+          <!-- M3 -->
+          <div class="motor-card mc-m3">
+            <div class="mc-tag m3">M3</div>
+            <div class="mc-row">
+              <div class="mc-key">Volt (V)</div>
+              <div class="mc-num v" id="sv-m3v">--.-</div>
+            </div>
+            <div class="mc-row">
+              <div class="mc-key">Curr (A)</div>
+              <div class="mc-num i" id="sv-m3i">--.-</div>
+            </div>
+            <div class="mc-row">
+              <div class="mc-key">Pwr (W)</div>
+              <div class="mc-num" style="color:var(--green);font-size:14px" id="sv-m3p">--.-</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end info-strip -->
+
+    <!-- charts: V row + I row, each 3 cols -->
+    <div class="chart-area">
+      <div class="chart-hdr">
+        <div class="chart-sec">Voltage &amp; Current vs Cycles</div>
+        <div class="legends">
+          <div class="leg"><div class="leg-line" style="background:var(--yellow)"></div>Volt (V)</div>
+          <div class="leg"><div class="leg-line" style="background:var(--orange)"></div>Curr (A)</div>
+        </div>
+      </div>
+      <div class="charts-wrap">
+        <div class="chart-cell"><canvas id="chartM1"></canvas></div>
+        <div class="chart-cell"><canvas id="chartM2"></canvas></div>
+        <div class="chart-cell"><canvas id="chartM3"></canvas></div>
+      </div>
+    </div>
+
+  </div><!-- end left-col -->
+
+  <!-- ══ RIGHT: CCD ══ -->
+  <div class="ccd-area">
+    <div class="ccd-hdr">
+      <div class="ccd-hdr-txt">CCD FEED — LIVE STREAM</div>
+      <div class="rec" id="rec"><div class="rec-dot"></div>REC</div>
+    </div>
+    <div class="ccd-body">
+      <span class="no-sig" id="no-sig">NO SIGNAL</span>
+      <img id="ccd-img" alt="CCD">
+    </div>
+  </div>
+
+</div>
+
+<script>
+const FLASK = "http://192.168.50.169:5000";
+document.getElementById("top-host").textContent = "HOST " + FLASK.replace("http://","");
+
+setInterval(()=>{
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("zh-TW",{hour12:false});
+},1000);
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function fv(v,d){ return (v==null)?'---':Number(v).toFixed(d); }
+function setT(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+
+// ── timer ──
+let startTs=null, frozenDuration=null, lastStatus='', isDone=false;
+setInterval(()=>{
+  if(frozenDuration!=null){ document.getElementById("duration").textContent=frozenDuration; return; }
+  if(!startTs) return;
+  const s=Math.floor((Date.now()-startTs)/1000);
+  document.getElementById("duration").textContent=`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+},1000);
+
+// ── chart factory: 2 datasets (V + I) per motor ──
+function makeMotorChart(canvasId, motorLabel, motorColor){
+  return new Chart(document.getElementById(canvasId),{
+    type:'line',
+    data:{ datasets:[
+      { label:'Volt (V)', data:[], borderColor:'#ffd600', borderWidth:1.5, pointRadius:0, tension:.2, fill:false, yAxisID:'yV' },
+      { label:'Curr (A)', data:[], borderColor:'#ff8c00', borderWidth:1.5, pointRadius:0, tension:.2, fill:false, yAxisID:'yI' }
+    ]},
+    options:{
+      animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:motorLabel+' — Volt (V) & Curr (A)', color:motorColor,
+               font:{family:'Share Tech Mono',size:10,weight:'bold'}, padding:{bottom:2}},
+        tooltip:{
+          backgroundColor:'rgba(12,16,24,.95)',borderColor:'#1a2235',borderWidth:1,
+          titleFont:{family:'Share Tech Mono',size:10},bodyFont:{family:'Share Tech Mono',size:10},
+          titleColor:'#dde6f0',bodyColor:'#8ab0d0',
+          callbacks:{ title: items=>`Cycles: ${Number(items[0].parsed.x).toFixed(0)}` }
+        }
+      },
+      scales:{
+        x:{
+          type:'linear', min:1,
+          afterDataLimits(sc){ sc.min=1; if(sc.max<=1) sc.max=10; else sc.max=Math.ceil(sc.max); },
+          ticks:{ color:'#4a6080', font:{family:'Share Tech Mono',size:9}, maxTicksLimit:6,
+                  callback:v=>Number.isInteger(v)?String(v):'' },
+          grid:{ color:'#0d1520' }
+        },
+        yV:{
+          position:'left',
+          ticks:{ color:'#ffd600', font:{family:'Share Tech Mono',size:9}, maxTicksLimit:4 },
+          grid:{ color:'#0d1520' },
+          title:{display:true, text:'V', color:'#ffd600', font:{family:'Share Tech Mono',size:9}}
+        },
+        yI:{
+          position:'right',
+          ticks:{ color:'#ff8c00', font:{family:'Share Tech Mono',size:9}, maxTicksLimit:4 },
+          grid:{ drawOnChartArea:false },
+          title:{display:true, text:'A', color:'#ff8c00', font:{family:'Share Tech Mono',size:9}}
+        }
+      }
+    }
+  });
+}
+
+const chartM1 = makeMotorChart('chartM1', 'M1', '#00e5ff');
+const chartM2 = makeMotorChart('chartM2', 'M2', '#39ff8a');
+const chartM3 = makeMotorChart('chartM3', 'M3', '#c084fc');
+const allCharts = [chartM1, chartM2, chartM3];
+
+let lastCycles = null;
+
+function clearAll(){
+  allCharts.forEach(c=>{ c.data.datasets.forEach(ds=>ds.data=[]); c.update('none'); });
+  lastCycles=null; isDone=false; frozenDuration=null;
+  startTs=Date.now();
+  document.getElementById("duration").textContent='00:00:00';
+}
+
+function updateUI(d){
+  const s = (d.status||'idle').toLowerCase();
+  const isDoneNow = !!d.done;
+  const isRun = s.includes('run');
+
+  // topbar dot
+  const ld=document.getElementById("live-dot"), lt=document.getElementById("live-txt");
+  if(isDoneNow){ld.className='live-dot done';lt.textContent='DONE';lt.style.color='var(--accent)';}
+  else if(isRun){ld.className='live-dot running';lt.textContent='LIVE';lt.style.color='var(--green)';}
+  else{ld.className='live-dot';lt.textContent='IDLE';lt.style.color='var(--muted)';}
+
+  // status pill
+  const pill=document.getElementById("status-pill"), dot=document.getElementById("sp-dot");
+  const txt=document.getElementById("sp-txt"), sub=document.getElementById("sp-sub");
+  if(isDoneNow){
+    pill.className='status-pill done';dot.className='sp-dot done';
+    txt.className='sp-txt done';txt.textContent='COMPLETED';sub.textContent='測試已完成';
+  } else if(isRun){
+    pill.className='status-pill running';dot.className='sp-dot running';
+    txt.className='sp-txt running';txt.textContent='RUNNING';
+    sub.textContent='更新 '+new Date().toLocaleTimeString("zh-TW",{hour12:false});
+  } else {
+    pill.className='status-pill';dot.className='sp-dot';
+    txt.className='sp-txt';txt.textContent='IDLE';sub.textContent='等待測試開始';
+  }
+
+  document.getElementById("rec").className='rec'+(isRun?' show':'');
+
+  // new test → clear
+  if(isRun && !lastStatus.includes('run')) clearAll();
+  lastStatus = s;
+
+  // sync timer from server start_time
+  if(isRun && d.start_time!=null){
+    const sm = d.start_time * 1000;
+    if(!startTs || Math.abs(startTs-sm)>2000) startTs=sm;
+  }
+
+  // info panel
+  setT('l-model',  d.model||'---');
+  setT('l-total',  d.total_cycles!=null ? Number(d.total_cycles).toFixed(0)+' cyc' : '---');
+
+  // kpi
+  setT('sv-cycles', fv(d.cycles,0));
+  setT('sv-total',  fv(d.total_cycles,0));
+  setT('sv-cmd',    d.command||'---');
+
+  // motor values + P=V×I
+  setT('sv-m1v', fv(d.m1_v,2));  setT('sv-m1i', fv(d.m1_i,2));
+  setT('sv-m2v', fv(d.m2_v,2));  setT('sv-m2i', fv(d.m2_i,2));
+  setT('sv-m3v', fv(d.m3_v,2));  setT('sv-m3i', fv(d.m3_i,2));
+  const pw = (v,i) => (v!=null&&i!=null) ? (Number(v)*Number(i)).toFixed(2) : '---';
+  setT('sv-m1p', pw(d.m1_v, d.m1_i));
+  setT('sv-m2p', pw(d.m2_v, d.m2_i));
+  setT('sv-m3p', pw(d.m3_v, d.m3_i));
+
+  // charts — one point per cycle, V=ds[0] I=ds[1]
+  if(isRun && d.cycles!=null && Number(d.cycles)>0 && d.m1_v!=null && d.m1_i!=null){
+    const cx = Number(d.cycles);
+    if(cx !== lastCycles){
+      const push = (chart, v, i) => {
+        chart.data.datasets[0].data.push({x:cx, y:Number(v||0)});
+        chart.data.datasets[1].data.push({x:cx, y:Number(i||0)});
+        chart.update('none');
+      };
+      push(chartM1, d.m1_v, d.m1_i);
+      push(chartM2, d.m2_v, d.m2_i);
+      push(chartM3, d.m3_v, d.m3_i);
+      lastCycles = cx;
+    }
+  }
+
+  // freeze timer on done
+  if(isDoneNow && !isDone){
+    isDone=true;
+    if(startTs){
+      const s=Math.floor((Date.now()-startTs)/1000);
+      frozenDuration=`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+    }
+  }
+}
+
+// CCD
+const ccdImg=document.getElementById("ccd-img"), noSig=document.getElementById("no-sig");
+ccdImg.onload=()=>{ ccdImg.style.display='block'; noSig.style.display='none'; };
+ccdImg.onerror=()=>{ ccdImg.style.display='none'; noSig.style.display='block'; setTimeout(()=>ccdImg.src=`${FLASK}/stream?t=${Date.now()}`,3000); };
+ccdImg.src=`${FLASK}/stream?t=${Date.now()}`;
+
+async function poll(){
+  try{ const res=await fetch(`${FLASK}/api/life2/data`); updateUI(await res.json()); }catch(e){}
+}
+setInterval(poll,400);
+poll();
+</script>
+</body>
+</html>

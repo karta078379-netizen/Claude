@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>齒輪箱效率測試</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#07090d;--panel:#0c1018;--border:#1a2235;
+  --accent:#00e5ff;--green:#39ff8a;--red:#ff3b5c;
+  --yellow:#ffd600;--orange:#ff8c00;--purple:#c084fc;
+  --muted:#8aa4c0;--text:#dde6f0;
+  --mono:'Share Tech Mono',monospace;--body:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-weight:600;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{height:48px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px}
+.back{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px;letter-spacing:1px;font-weight:700;transition:all .2s;text-decoration:none}
+.back:hover{border-color:var(--accent);color:var(--accent)}
+.top-logo{font-family:var(--mono);font-size:13px;letter-spacing:3px;color:var(--accent);font-weight:700}
+.top-logo span{color:var(--muted)}
+.top-sub{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:700;letter-spacing:1px}
+.top-sep{flex:1}
+.demo-btn{
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;
+  color:var(--yellow);background:rgba(255,214,0,.08);
+  border:1px solid rgba(255,214,0,.35);border-radius:4px;
+  padding:7px 14px;cursor:pointer;text-transform:uppercase;
+  transition:all .2s;white-space:nowrap;
+}
+.demo-btn:hover:not(:disabled){background:rgba(255,214,0,.16);box-shadow:0 0 12px rgba(255,214,0,.25)}
+.demo-btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+
+.live-badge{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:700}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all .3s}
+.live-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.3s infinite}
+.live-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.top-host{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;padding-left:16px;border-left:1px solid var(--border)}
+.top-clock{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:700}
+
+/* BODY GRID */
+.body-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;min-height:0}
+
+/* LEFT COL */
+.left-col{display:flex;flex-direction:column;overflow:hidden;min-height:0;border-right:1px solid var(--border)}
+
+/* info strip */
+.info-strip{flex:0 0 320px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;flex-direction:row}
+.info-panel{flex:0 0 175px;padding:14px;display:flex;flex-direction:column;gap:10px;border-right:1px solid var(--border)}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase;padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:3px}
+.sum-title{font-size:18px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:4px}
+.info-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:baseline}
+.ig-key{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+.ig-val{font-family:var(--mono);font-size:15px;color:var(--text);font-weight:700}
+
+.status-pill{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:3px;background:rgba(74,96,128,.08);border:1px solid rgba(74,96,128,.25);transition:all .4s}
+.status-pill.running{background:rgba(57,255,138,.07);border-color:rgba(57,255,138,.3)}
+.status-pill.done{background:rgba(0,229,255,.07);border-color:rgba(0,229,255,.25)}
+.sp-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.sp-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.2s infinite}
+.sp-dot.done{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:none}
+.sp-info{display:flex;flex-direction:column;gap:1px}
+.sp-txt{font-family:var(--mono);font-size:14px;letter-spacing:2px;font-weight:700;text-transform:uppercase;color:var(--muted)}
+.sp-txt.running{color:var(--green)}.sp-txt.done{color:var(--accent)}
+.sp-sub{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:700}
+
+/* schematic */
+.schematic-panel{flex:1;background:#000c18;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.sch-lbl{position:absolute;top:7px;left:10px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:rgba(255,214,0,.45);font-weight:700;text-transform:uppercase}
+
+
+
+/* chart — fills remaining space, no table below */
+.chart-area{flex:1;padding:10px 12px 10px;display:flex;flex-direction:column;gap:6px;overflow:hidden;min-height:0}
+.chart-hdr{flex-shrink:0;display:flex;align-items:center;gap:10px}
+.chart-sec{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.legends{display:flex;gap:12px;margin-left:auto}
+.leg{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text);font-weight:700}
+.leg-line{width:18px;height:2px;border-radius:1px}
+.chart-wrap{flex:1;position:relative;min-height:0}
+
+/* elapsed timer */
+.dur-box{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:7px 9px;text-align:center}
+.dur-val{font-family:var(--mono);font-size:19px;color:var(--text);font-weight:700;letter-spacing:3px}
+.dur-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+
+/* ══ RIGHT: CCD (identical to life.html / motor.html) ══ */
+.ccd-area{background:#000;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.ccd-hdr{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px}
+.ccd-hdr-txt{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);font-weight:700;text-transform:uppercase}
+.rec{display:none;align-items:center;gap:5px;background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.4);border-radius:2px;padding:3px 9px;font-family:var(--mono);font-size:10px;color:var(--red);font-weight:700;letter-spacing:2px}
+.rec.show{display:flex}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);animation:pulse .8s infinite}
+.ccd-body{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ccd-body::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:3}
+.ccd-body::after{content:'';position:absolute;inset:16px;pointer-events:none;z-index:2;opacity:.45;
+  background:
+    linear-gradient(var(--accent),var(--accent)) top left/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top left/1px 24px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top right/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top right/1px 24px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left/1px 24px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right/24px 1px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right/1px 24px no-repeat}
+#ccd-img{max-width:100%;max-height:100%;object-fit:contain;z-index:1;display:none}
+.no-sig{position:absolute;font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:5px;font-weight:700;text-transform:uppercase;z-index:1}
+
+
+/* nav dropdown */
+.nav-drop{position:relative}
+.nav-btn{
+  background:rgba(0,229,255,0.08);
+  border:1px solid var(--accent);
+  color:var(--accent);
+  font-family:var(--mono);font-size:12px;
+  padding:6px 14px;cursor:pointer;border-radius:3px;
+  letter-spacing:1px;font-weight:700;
+  display:flex;align-items:center;gap:8px;
+  transition:all .2s;white-space:nowrap;
+  box-shadow:0 0 10px rgba(0,229,255,0.15);
+}
+.nav-btn:hover{background:rgba(0,229,255,0.15);box-shadow:0 0 16px rgba(0,229,255,0.25)}
+.nav-arrow{font-size:11px;transition:transform .2s;display:inline-block;opacity:.8}
+.nav-drop.open .nav-arrow{transform:rotate(180deg)}
+.nav-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--panel);border:1px solid var(--accent);border-radius:4px;overflow:hidden;z-index:999;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.8),0 0 20px rgba(0,229,255,.1)}
+.nav-drop.open .nav-menu{display:block}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 16px;font-family:var(--mono);font-size:12px;color:var(--text);text-decoration:none;letter-spacing:1px;font-weight:700;transition:background .15s,color .15s;border-bottom:1px solid var(--border);white-space:nowrap}
+.nav-item:last-child{border-bottom:none}
+.nav-item:hover{background:rgba(0,229,255,.08);color:var(--accent)}
+.nav-item.active{color:var(--accent);background:rgba(0,229,255,.06)}
+.nav-item-name{flex:1}
+.nav-status{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:1px}
+.nav-sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.nav-sdot.running{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.2s infinite}
+.nav-sdot.done{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="index.html">← BACK</a>
+  <div class="top-logo">LAB<span>//</span>TEST MONITOR</div>
+    <!-- 下拉選單 -->
+  <div class="nav-drop" id="navDrop">
+    <button class="nav-btn" onclick="toggleNav()">
+      ▤ &nbsp;切換測試項目 <span class="nav-arrow">▾</span>
+    </button>
+    <div class="nav-menu" id="navMenu">
+      <a class="nav-item" href="motor.html">
+        <span>⚡</span><span class="nav-item-name">馬達特性曲線測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-motor"></span><span id="nt-motor" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="noise.html">
+        <span>🔊</span><span class="nav-item-name">噪音與振動測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-noise"></span><span id="nt-noise" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item active" href="gear.html">
+        <span>⚙️</span><span class="nav-item-name">齒輪箱效率測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-gear"></span><span id="nt-gear" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="torque.html">
+        <span>🔧</span><span class="nav-item-name">產品扭力測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-life"></span><span id="nt-life" style="color:var(--muted)">IDLE</span></span>
+      </a>
+      <a class="nav-item" href="life.html">
+        <span>⏱️</span><span class="nav-item-name">產品壽命測試</span>
+        <span class="nav-status"><span class="nav-sdot" id="ns-lifenew"></span><span id="nt-lifenew" style="color:var(--muted)">IDLE</span></span>
+      </a>
+    </div>
+  </div>
+    <button class="demo-btn" id="demoBtn" onclick="startDemoManually()">&#9654; 觀看 DEMO</button>
+  <div class="top-sep"></div>
+  <div class="live-badge">
+    <div class="live-dot" id="live-dot"></div>
+    <span id="live-txt" style="color:var(--muted)">IDLE</span>
+  </div>
+  <div class="top-host" id="top-host">HOST ---</div>
+  <div class="top-clock" id="clock">--:--:--</div>
+</div>
+
+<div class="body-grid">
+
+  <!-- ══ LEFT ══ -->
+  <div class="left-col">
+
+    <!-- info strip -->
+    <div class="info-strip">
+      <div class="info-panel">
+        <div>
+          <div class="sec-lbl">Test Summary</div>
+          <div class="sum-title">齒輪箱<br>效率測試</div>
+          <div class="info-grid">
+            <div class="ig-key">型號</div><div class="ig-val" id="l-model">---</div>
+            <div class="ig-key">減速比</div><div class="ig-val" id="l-gr">---</div>
+          </div>
+        </div>
+        <div class="status-pill" id="status-pill">
+          <div class="sp-dot" id="sp-dot"></div>
+          <div class="sp-info">
+            <div class="sp-txt" id="sp-txt">IDLE</div>
+            <div class="sp-sub" id="sp-sub">等待測試開始</div>
+          </div>
+        </div>
+        <div class="dur-box">
+          <div class="dur-val" id="dur-val">--:--:--</div>
+          <div class="dur-lbl">Elapsed Time</div>
+        </div>
+      </div>
+
+      <!-- schematic panel: 上方數值欄(HTML) + 下方示意圖(SVG) -->
+      <div class="schematic-panel" style="flex-direction:column;align-items:stretch;padding:8px 12px;gap:6px;background:#000c18">
+
+        <!-- ROW 1: N input | N set -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0">
+          <div style="background:#0c1018;border:1px solid #1a2235;border-radius:3px;padding:6px 10px">
+            <div style="font-family:var(--mono);font-size:13px;color:#8aa4c0;font-weight:700">N input (rpm)</div>
+            <div style="font-family:var(--mono);font-size:28px;color:#ffd600;font-weight:700;line-height:1.2" id="sv-rpm">----</div>
+          </div>
+          <div style="background:#0c1018;border:1px solid #1a2235;border-radius:3px;padding:6px 10px">
+            <div style="font-family:var(--mono);font-size:13px;color:#8aa4c0;font-weight:700">N set (rpm)</div>
+            <div style="font-family:var(--mono);font-size:19px;color:#dde6f0;font-weight:700;line-height:1.5" id="sv-rpms">--- / --- / ---</div>
+          </div>
+        </div>
+
+        <!-- ROW 2: Ti+To | Target+Standby+Avg+Eff | Brake -->
+        <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:6px;flex-shrink:0">
+          <div style="background:#0c1018;border:1px solid #1a2235;border-radius:3px;padding:6px 10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-family:var(--mono);font-size:13px;color:#ffd600;font-weight:700">Ti (N·m)</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#ffd600;font-weight:700" id="sv-ti">--.-</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-family:var(--mono);font-size:13px;color:#ff8c00;font-weight:700">To (N·m)</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#ff8c00;font-weight:700" id="sv-to">--.-</span>
+            </div>
+          </div>
+          <div style="background:#0c1018;border:1px solid #1a2235;border-radius:3px;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;gap:2px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-family:var(--mono);font-size:13px;color:#8aa4c0;font-weight:700">Target To</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#00e5ff;font-weight:700" id="sv-tgt">--.-</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-family:var(--mono);font-size:13px;color:#8aa4c0;font-weight:700">Avg To (N·m)</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#dde6f0;font-weight:700" id="sv-avgto">--.-</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-family:var(--mono);font-size:13px;color:#39ff8a;font-weight:700">Eff (%)</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#39ff8a;font-weight:700" id="sv-eff">--.-</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div id="sv-rec-dot" style="width:8px;height:8px;border-radius:50%;background:#8aa4c0;flex-shrink:0"></div>
+              <span style="font-family:var(--mono);font-size:12px;color:#8aa4c0;font-weight:700" id="sv-rec-txt">STANDBY</span>
+            </div>
+          </div>
+          <div style="background:#0c1018;border:1px solid #1a2235;border-radius:3px;padding:6px 10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-family:var(--mono);font-size:13px;color:#ff8c00;font-weight:700">Brake(V)</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#dde6f0;font-weight:700" id="sv-bv">-.--</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-family:var(--mono);font-size:13px;color:#c084fc;font-weight:700">Brake(A)</span>
+              <span style="font-family:var(--mono);font-size:20px;color:#dde6f0;font-weight:700" id="sv-ba">-.--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 示意圖 SVG：純機械圖，標籤在右下 -->
+        <div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;bottom:4px;right:8px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:rgba(255,214,0,.45);font-weight:700;text-transform:uppercase;z-index:1">Schematic</span>
+          <svg viewBox="0 0 620 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-height:100%">
+            <defs>
+              <linearGradient id="mg" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#1a3a5c"/><stop offset="100%" style="stop-color:#0a1a2e"/>
+              </linearGradient>
+              <linearGradient id="gbg" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#2a1a00"/><stop offset="100%" style="stop-color:#1a1000"/>
+              </linearGradient>
+              <linearGradient id="brkg" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#5c2a00"/><stop offset="100%" style="stop-color:#2e1400"/>
+              </linearGradient>
+              <linearGradient id="sg" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#3a4a60"/><stop offset="100%" style="stop-color:#1a2235"/>
+              </linearGradient>
+            </defs>
+
+            <!-- base rail -->
+            <rect x="6" y="82" width="608" height="6" rx="2" fill="#1a2235"/>
+
+            <!-- support stands -->
+            <rect x="24"  y="64" width="7" height="18" rx="1" fill="#253040"/>
+            <rect x="90"  y="64" width="7" height="18" rx="1" fill="#253040"/>
+            <rect x="182" y="66" width="7" height="16" rx="1" fill="#253040"/>
+            <rect x="250" y="66" width="7" height="16" rx="1" fill="#253040"/>
+            <rect x="340" y="66" width="7" height="16" rx="1" fill="#253040"/>
+            <rect x="410" y="66" width="7" height="16" rx="1" fill="#253040"/>
+            <rect x="496" y="60" width="7" height="22" rx="1" fill="#253040"/>
+            <rect x="574" y="60" width="7" height="22" rx="1" fill="#253040"/>
+
+            <!-- MOTOR -->
+            <rect x="16" y="32" width="90" height="40" rx="5" fill="url(#mg)" stroke="#1e4a7a" stroke-width="2"/>
+            <text x="61" y="56" text-anchor="middle" font-family="Share Tech Mono" font-size="13" fill="#00e5ff" font-weight="700">MOTOR</text>
+            <rect x="106" y="42" width="10" height="20" rx="2" fill="#0d2a45" stroke="#1e4a7a"/>
+
+            <!-- Coupling 1 -->
+            <rect x="116" y="46" width="46" height="12" rx="3" fill="url(#sg)" stroke="#3a4a60"/>
+            <text x="139" y="42" text-anchor="middle" font-family="Share Tech Mono" font-size="9" fill="#8ab0d0" font-weight="700">Coupling</text>
+
+            <!-- Ti sensor -->
+            <rect x="162" y="37" width="10" height="30" rx="2" fill="#1a3020" stroke="#39ff8a" stroke-width="2"/>
+            <text x="167" y="78" text-anchor="middle" font-family="Share Tech Mono" font-size="11" fill="#39ff8a" font-weight="700">Ti</text>
+
+            <!-- GEARBOX -->
+            <rect x="182" y="26" width="152" height="52" rx="5" fill="url(#gbg)" stroke="#ff8c00" stroke-width="2.5"/>
+            <text x="258" y="49" text-anchor="middle" font-family="Share Tech Mono" font-size="13" fill="#ff8c00" font-weight="700">GEARBOX</text>
+            <text x="258" y="65" text-anchor="middle" font-family="Share Tech Mono" font-size="10" fill="#ff8c00" font-weight="700" opacity=".7" id="sv-gr2">GR: ---</text>
+            <rect x="334" y="46" width="10" height="12" rx="2" fill="#2a1400" stroke="#7a3a00"/>
+
+            <!-- To sensor -->
+            <rect x="344" y="37" width="10" height="30" rx="2" fill="#1a2a10" stroke="#ffd600" stroke-width="2"/>
+            <text x="349" y="78" text-anchor="middle" font-family="Share Tech Mono" font-size="11" fill="#ffd600" font-weight="700">To</text>
+
+            <!-- Coupling 2 -->
+            <rect x="354" y="46" width="68" height="12" rx="3" fill="url(#sg)" stroke="#3a4a60"/>
+            <text x="388" y="42" text-anchor="middle" font-family="Share Tech Mono" font-size="9" fill="#8ab0d0" font-weight="700">Coupling</text>
+
+            <!-- BRAKE -->
+            <rect x="422" y="22" width="172" height="56" rx="5" fill="url(#brkg)" stroke="#7a3a00" stroke-width="2"/>
+            <text x="508" y="48" text-anchor="middle" font-family="Share Tech Mono" font-size="13" fill="#ff8c00" font-weight="700">BRAKE</text>
+            <text x="508" y="64" text-anchor="middle" font-family="Share Tech Mono" font-size="10" fill="#ff8c00" font-weight="600" opacity=".6">LOAD</text>
+          </svg>
+        </div>
+      </div>
+    </div><!-- end info-strip -->
+
+
+
+    <!-- chart: Eff vs To, one line per RPM, fills rest of space -->
+    <div class="chart-area">
+      <div class="chart-hdr">
+        <div class="chart-sec">效率曲線 vs 扭力</div>
+        <div class="legends" id="legends"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    </div>
+
+  </div><!-- end left-col -->
+
+  <!-- ══ RIGHT: CCD ══ -->
+  <div class="ccd-area">
+    <div class="ccd-hdr">
+      <div class="ccd-hdr-txt">CCD FEED — LIVE STREAM</div>
+      <div class="rec" id="rec"><div class="rec-dot"></div>REC</div>
+    </div>
+    <div class="ccd-body">
+      <span class="no-sig" id="no-sig">NO SIGNAL</span>
+      <img id="ccd-img" alt="CCD">
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+function toggleNav(){
+  const d=document.getElementById("navDrop");
+  d.classList.toggle("open");
+}
+document.addEventListener("click", e=>{
+  const d=document.getElementById("navDrop");
+  if(!d.contains(e.target)) d.classList.remove("open");
+});
+
+const NAV_KEYS = ['motor','noise','gear','life','lifenew'];
+async function pollNavStatus(){
+  try{
+    const res = await fetch(`${FLASK}/api/status`);
+    const d = await res.json();
+    NAV_KEYS.forEach(k=>{
+      const s = (d[k]||'idle').toLowerCase();
+      const dot = document.getElementById(`ns-${k}`);
+      const txt = document.getElementById(`nt-${k}`);
+      if(!dot||!txt) return;
+      if(s.includes('run')){
+        dot.className='nav-sdot running'; txt.textContent='RUNNING'; txt.style.color='var(--green)';
+      } else if(s.includes('done')){
+        dot.className='nav-sdot done'; txt.textContent='DONE'; txt.style.color='var(--accent)';
+      } else {
+        dot.className='nav-sdot'; txt.textContent='IDLE'; txt.style.color='var(--muted)';
+      }
+    });
+  }catch(e){}
+}
+setInterval(pollNavStatus, 2000);
+pollNavStatus();
+
+const FLASK = "https://web-production-0ed68.up.railway.app";
+document.getElementById("top-host").textContent = "HOST " + FLASK.replace("http://","");
+
+setInterval(()=>{
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("zh-TW",{hour12:false});
+},1000);
+
+// ── colour palette for RPM series ──
+const COLORS = ['#ff3b5c','#ffd600','#39ff8a','#00e5ff','#c084fc'];
+
+let rpmSeries = {};
+let demoRunning = false;
+let rpmOrder  = [];
+let lastStatus = '', pageJustLoaded=true;
+let isDone = false;
+let startTs = null, frozenDuration = null;
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+// ── Timer ──
+setInterval(()=>{
+  if(!startTs){ return; }
+  const disp = frozenDuration || (()=>{
+    const s = Math.floor((Date.now()-startTs)/1000);
+    return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+  })();
+  document.getElementById("dur-val").textContent = disp;
+},1000);
+
+// ── Main Chart: Eff vs To, one dataset per RPM ──
+const mainChart = new Chart(document.getElementById("mainChart"),{
+  type:'line',
+  data:{ datasets:[] },
+  options:{
+    animation:false, responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'rgba(12,16,24,.95)',borderColor:'#1a2235',borderWidth:1,
+        titleFont:{family:'Share Tech Mono',size:12},bodyFont:{family:'Share Tech Mono',size:12},
+        titleColor:'#dde6f0',bodyColor:'#8ab0d0',
+        callbacks:{ title: items=>`Avg To: ${Number(items[0].parsed.x).toFixed(2)} Nm` }
+      }
+    },
+    scales:{
+      x:{
+        type:'linear', min:0,
+        title:{display:true, text:'Avg Output Torque To (Nm)', color:'#dde6f0', font:{family:'Share Tech Mono',size:12,weight:'bold'}},
+        ticks:{color:'#dde6f0', font:{family:'Share Tech Mono',size:12,weight:'bold'}},
+        grid:{color:'rgba(255,255,255,0.5)',lineWidth:1}
+      },
+      y:{
+        type:'linear', min:0, grace:'8%',
+        title:{display:true, text:'Efficiency (%)', color:'#39ff8a', font:{family:'Share Tech Mono',size:12,weight:'bold'}},
+        ticks:{color:'#39ff8a', font:{family:'Share Tech Mono',size:12,weight:'bold'}, maxTicksLimit:6},
+        grid:{color:'rgba(255,255,255,0.5)',lineWidth:1}
+      }
+    }
+  }
+});
+
+function fv(v,d){ return (v==null)?'---':Number(v).toFixed(d); }
+function setT(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+
+function ensureDataset(rpmKey){
+  if(rpmOrder.indexOf(rpmKey)>=0) return;
+  rpmOrder.push(rpmKey);
+  const color = COLORS[(rpmOrder.length-1)%COLORS.length];
+  mainChart.data.datasets.push({
+    label: rpmKey+' RPM', data:[], borderColor:color,
+    borderWidth:2, pointRadius:2, tension:.3, fill:false
+  });
+  mainChart.update('none');
+  buildLegend();
+}
+
+function buildLegend(){
+  document.getElementById("legends").innerHTML = rpmOrder.map((r,i)=>
+    `<div class="leg"><div class="leg-line" style="background:${COLORS[i%COLORS.length]}"></div>${r} RPM</div>`
+  ).join('');
+}
+
+function addPoint(rpmKey, to, eff){
+  ensureDataset(rpmKey);
+  if(!rpmSeries[rpmKey]) rpmSeries[rpmKey]=[];
+  rpmSeries[rpmKey].push({to,eff});
+  mainChart.data.datasets[rpmOrder.indexOf(rpmKey)].data.push({x:to,y:eff});
+  mainChart.update('none');
+}
+
+function clearAll(){
+  rpmSeries={};rpmOrder=[];isDone=false;
+  frozenDuration=null; startTs=Date.now();
+  document.getElementById("dur-val").textContent='00:00:00';
+  mainChart.data.datasets=[];
+  mainChart.update('none');
+  document.getElementById("legends").innerHTML='';
+}
+
+function updateUI(d){
+  syncDemoBtn((String(d.status||'').toLowerCase().includes('run')) && !d.demo);
+  // 真實資料一進來就停止 demo，切回正常模式
+  if(demoRunning && !d.demo && String(d.status||'').toLowerCase().includes('run')) demoRunning = false;
+
+  const s = (d.status||'idle').toLowerCase();
+  const isDoneNow = !!d.done;
+  const isRun = s.includes('run');
+  const isDemo = !!d.demo;
+
+  // topbar dot
+  const ld=document.getElementById("live-dot"),lt=document.getElementById("live-txt");
+  if(isDoneNow && isDemo){ld.className='live-dot done';ld.style.background='var(--yellow)';ld.style.boxShadow='0 0 8px var(--yellow)';lt.textContent='DEMO';lt.style.color='var(--yellow)';}
+  else if(isDoneNow){ld.className='live-dot done';ld.style.background='';ld.style.boxShadow='';lt.textContent='DONE';lt.style.color='var(--accent)';}
+  else if(isRun){ld.className='live-dot running';ld.style.background='';ld.style.boxShadow='';lt.textContent=isDemo?'DEMO':'LIVE';lt.style.color=isDemo?'var(--yellow)':'var(--green)';}
+  else{ld.className='live-dot';ld.style.background='';ld.style.boxShadow='';lt.textContent='IDLE';lt.style.color='var(--muted)';}
+
+  // status pill
+  const pill=document.getElementById("status-pill"),dot=document.getElementById("sp-dot");
+  const txt=document.getElementById("sp-txt"),sub=document.getElementById("sp-sub");
+  if(isDoneNow && isDemo){
+    pill.className='status-pill done';dot.className='sp-dot done';dot.style.background='var(--yellow)';dot.style.boxShadow='0 0 8px var(--yellow)';
+    txt.className='sp-txt';txt.textContent='DEMO';txt.style.color='var(--yellow)';sub.textContent='DEMO 已完成';
+  } else if(isDoneNow){
+    pill.className='status-pill done';dot.className='sp-dot done';dot.style.background='';dot.style.boxShadow='';
+    txt.className='sp-txt done';txt.textContent='COMPLETED';txt.style.color='';sub.textContent='測試已完成';
+  } else if(isRun){
+    pill.className='status-pill running';dot.className='sp-dot running';dot.style.background='';dot.style.boxShadow='';
+    txt.className='sp-txt running';txt.textContent=isDemo?'DEMO':'RUNNING';txt.style.color='';
+    sub.textContent='更新 '+new Date().toLocaleTimeString("zh-TW",{hour12:false});
+  } else {
+    pill.className='status-pill';dot.className='sp-dot';dot.style.background='';dot.style.boxShadow='';
+    txt.className='sp-txt';txt.textContent='IDLE';txt.style.color='';sub.textContent='等待測試開始';
+  }
+
+  // REC badge (right side header)
+  document.getElementById("rec").className='rec'+(isRun?' show':'');
+
+  // new test → clear
+  if(isRun && !lastStatus.includes('run') && !pageJustLoaded) clearAll();
+  lastStatus = s;
+  pageJustLoaded=false;
+
+  // info panel
+  setT('l-model', d.model||'---');
+  setT('l-gr',    d.gear_ratio!=null ? d.gear_ratio : '---');
+  if(d.rpm_list && d.rpm_list.length) setT('l-rpms', d.rpm_list.join(' / '));
+
+  // values
+  const ti  = fv(d.ti,2);
+  const to  = fv(d.to,2);
+  const eff = fv(d.eff,1);
+  const tgt = fv(d.target_to,2);
+  const bv  = fv(d.brake_v,3);
+  const ba  = fv(d.brake_a,3);
+  const rpm = d.rpm!=null ? String(Math.round(d.rpm)) : '---';
+  const grTxt = d.gear_ratio!=null ? String(d.gear_ratio) : '---';
+
+
+  setT('sv-ti',ti); setT('sv-to',to); setT('sv-eff',eff);
+  setT('sv-tgt',tgt); setT('sv-bv',bv); setT('sv-ba',ba);
+  setT('sv-rpm',rpm); setT('sv-gr',grTxt); setT('sv-gr2','GR: '+grTxt);
+  setT('sv-avgto', fv(d.avg_to,2));
+  setT('sv-model', d.model||'---');
+  setT('sv-rpms',  d.rpm_list&&d.rpm_list.length ? d.rpm_list.join(' / ') : '--- / --- / ---');
+
+  // Recording SVG indicator
+  const isRec = !!d.recording;
+  const recDot=document.getElementById("sv-rec-dot"), recTxt=document.getElementById("sv-rec-txt");
+  if(recDot){ recDot.setAttribute('fill',isRec?'#ffd600':'#4a6080'); recDot.style.filter=isRec?'drop-shadow(0 0 3px #ffd600)':'none'; }
+  if(recTxt) recTxt.textContent = isRec?'RECORDING':'STANDBY';
+
+  // chart point — use avg_to as X axis
+  if(isRun && isRec && d.rpm!=null && d.avg_to!=null && d.eff!=null){
+    addPoint(String(Math.round(d.rpm)), Number(d.avg_to), Number(d.eff));
+  }
+
+  if(isDoneNow && !isDone){
+    isDone=true;
+    if(startTs){
+      const s=Math.floor((Date.now()-startTs)/1000);
+      frozenDuration=`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+    }
+  }
+}
+
+// CCD stream
+const ccdImg=document.getElementById("ccd-img"), noSig=document.getElementById("no-sig");
+ccdImg.onload=()=>{ ccdImg.style.display='block'; noSig.style.display='none'; };
+ccdImg.onerror=()=>{ ccdImg.style.display='none'; noSig.style.display='block'; };
+function refreshCCD(){ ccdImg.src=`${FLASK}/stream?t=${Date.now()}`; }
+refreshCCD();
+setInterval(refreshCCD, 1000);
+
+async function poll(){
+  try{
+    const res=await fetch(`${FLASK}/api/gear/data`);
+    const j=await res.json();
+    const st=String(j.status||'idle').toLowerCase();
+    const hasData = st!=='idle' || j.done || j.rpm!=null || (j.history&&j.history.length);
+    if(demoRunning){
+      if(!st.includes('run')) return;   // demo 中：只有真的開始新測試(running)才中斷，舊的已完成結果不打斷
+    } else if(!hasData){
+      return;
+    }
+    updateUI(j);
+  }catch(e){}
+}
+
+function syncDemoBtn(realRunning){
+  const btn=document.getElementById('demoBtn');
+  if(!btn) return;
+  if(demoRunning){ btn.disabled=true; btn.textContent='\u25CF DEMO 進行中'; }
+  else if(realRunning){ btn.disabled=true; btn.textContent='\u25CF 測試進行中'; }
+  else { btn.disabled=false; btn.textContent='\u25B6 觀看 DEMO'; }
+}
+function startDemoManually(){
+  if(demoRunning) return;
+  runDemo();
+  syncDemoBtn(false);
+}
+
+function runDemo(){
+  demoRunning = true;
+  const CURVES = {
+    "800":  [[0.2,1.3],[2.3,8.9],[4.3,10.2],[6.3,10.9],[8.4,11.5]],
+    "1000": [[0.2,1.4],[2.3,9.3],[4.3,10.5],[6.3,11.3],[8.4,12.0]],
+    "1200": [[0.2,1.4],[2.3,9.4],[4.3,10.6],[6.3,11.5],[8.4,12.3]]
+  };
+  const rpms = ["800","1000","1200"];
+  const GR = 20;
+  let ri = 0, pi = 0;
+  let lastData = null;
+
+  function step(){
+    if(!demoRunning) return;               // 真實資料進來即停
+    if(ri >= rpms.length){                  // 三線跑完 → done（保留最後數據）
+      updateUI(Object.assign({}, lastData, {status:'done', done:true, demo:true}));
+      return;
+    }
+    const rpm = rpms[ri];
+    const [to, eff] = CURVES[rpm][pi];
+    const ti = +(to/ (eff/100) / 1).toFixed(2);   // 粗估輸入扭矩(僅示意)
+    const ratio = 0.85 + Math.random()*0.05;
+    const tiCalc = +(to/ratio).toFixed(2);
+
+    // 上區塊數值更新（走 updateUI，但 recording 交給 addPoint 直接畫）
+    lastData = {
+      status:'running', done:false, demo:true, recording:false,
+      model:'GB-40:1', gear_ratio:GR, rpm:Number(rpm), rpm_list:rpms.map(Number),
+      ti:tiCalc, to:to, avg_to:to, eff:eff, target_to:to,
+      brake_v:5.0+Math.random()*0.2, brake_a:0.4+to*0.02
+    };
+    updateUI(lastData);
+
+    // 直接畫點，繞過 updateUI 內 isRun&&isRec 判斷
+    addPoint(rpm, to, eff);
+
+    pi++;
+    if(pi >= CURVES[rpm].length){ pi = 0; ri++; }
+    setTimeout(step,627);
+  }
+  setTimeout(step, 600);
+}
+
+(async()=>{
+  setInterval(poll,400);   // poll 常駐；真實資料進來會自動停 demo
+  try{
+    const r = await fetch(`${FLASK}/api/gear/data`, {signal:AbortSignal.timeout(1500)});
+    if(r.ok){ const j = await r.json();
+      if(j && (String(j.status||'').toLowerCase()!=='idle' || j.rpm!=null || j.done || (j.history&&j.history.length))){
+        updateUI(j);
+      }
+      // 無測試無紀錄 → 保持 IDLE，不自動跑 demo；使用者可按「觀看 DEMO」按鈕
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
