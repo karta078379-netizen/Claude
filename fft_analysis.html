@@ -24,7 +24,7 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 .fl{font-size:12px;color:#2a78d6;margin-top:2px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .info-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .info-card{background:#f8f9fa;border:1px solid #e8e8e8;border-radius:8px;padding:12px 16px;flex:1;min-width:130px}
-.info-card .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.info-card .label{font-size:11px;color:#888;letter-spacing:.3px}
 .info-card .value{font-size:22px;font-weight:600;margin-top:2px}
 .info-card .unit{font-size:12px;color:#666;font-weight:400}
 .charts{background:#fff;border-radius:10px;border:1px solid #ddd;overflow:hidden}
@@ -38,7 +38,7 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 .tabs{display:flex;gap:0;margin-bottom:16px}
 .tab{padding:10px 20px;font-size:15px;font-weight:500;cursor:pointer;border:1px solid #ddd;background:#f8f9fa;color:#666}
 .tab:first-child{border-radius:8px 0 0 8px}
-.tab:last-child{border-radius:0 8px 8px 0}
+.tab:last-child,.tab.tab-end{border-radius:0 8px 8px 0}
 .tab.active{background:#2a78d6;color:#fff;border-color:#2a78d6}
 .tab+.tab{border-left:none}
 .ptable{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
@@ -92,7 +92,8 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 <div id="results" class="hidden">
 <div class="tabs">
   <div class="tab active" data-tab="overview" onclick="switchTab('overview')">趨勢總覽</div>
-  <div class="tab" data-tab="spectrum" onclick="switchTab('spectrum')">頻譜峰值分析</div>
+  <div class="tab" id="tab-btn-spectrum" data-tab="spectrum" onclick="switchTab('spectrum')">頻譜峰值分析</div>
+  <div class="tab hidden" id="tab-btn-compare" data-tab="compare" onclick="switchTab('compare')">差異比較</div>
 </div>
 
 <!-- ═══ Tab 1 ═══ -->
@@ -140,9 +141,49 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
     <label style="margin-left:8px">Y:</label><input id="s-ymin" placeholder="auto"> – <input id="s-ymax" placeholder="auto"> <span>dB</span>
     <button onclick="doSpec()">套用</button><button onclick="resetSpecAxis()">自動</button>
   </div>
-  <div id="spec-chart-box" style="position:relative;height:380px"></div>
+  <div id="spec-chart-box" style="position:relative;height:380px"><canvas id="cS"></canvas></div>
 </div>
 <div class="panel" style="margin-top:16px"><div class="panel-title">偵測到的峰值</div><div id="peak-wrap"></div></div>
+</div>
+
+<!-- ═══ Tab 3：多工作表差異比較 ═══ -->
+<div id="tab-compare" class="hidden">
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">比較對象</div>
+  <div class="mn">
+    <div class="pg"><label>工作表 A</label><select id="cmp-a" onchange="renderCompare()"></select></div>
+    <div class="pg"><label>工作表 B</label><select id="cmp-b" onchange="renderCompare()"></select></div>
+    <div class="mi" id="cmp-sheet-info"></div>
+  </div>
+</div>
+<div class="info-row" id="cmp-cards"></div>
+<div class="charts">
+  <div class="cs">
+    <div class="ct">Run Leq 比較</div>
+    <div style="position:relative;height:260px"><canvas id="cCmpLeq"></canvas></div>
+    <div class="legend"><span><i style="background:#2a78d6"></i>A</span><span><i style="background:#eb6834"></i>B</span></div>
+  </div>
+  <div class="cs">
+    <div class="ct">峰值頻率比較</div>
+    <div style="position:relative;height:260px"><canvas id="cCmpPf"></canvas></div>
+    <div class="legend"><span><i style="background:#2a78d6"></i>A</span><span><i style="background:#eb6834"></i>B</span></div>
+  </div>
+  <div class="cs">
+    <div class="ct" id="cmp-fft-title">FFT 疊圖與差值（A − B）</div>
+    <div class="mn">
+      <button onclick="chgCmpM(-1)">◀ 上一筆</button>
+      <div class="pg"><select id="cmp-meas" onchange="renderCmpSpec()"></select></div>
+      <button onclick="chgCmpM(1)">下一筆 ▶</button>
+      <div class="mi" id="cmp-meas-info"></div>
+    </div>
+    <div style="position:relative;height:280px"><canvas id="cCmpFft"></canvas></div>
+    <div class="legend"><span><i style="background:#2a78d6"></i>A 頻譜</span><span><i style="background:#eb6834"></i>B 頻譜</span></div>
+    <div style="position:relative;height:220px;margin-top:12px"><canvas id="cCmpDiff"></canvas></div>
+    <div class="legend"><span><i style="background:#7c3aed"></i>差值 A−B (dB)</span></div>
+  </div>
+</div>
+<div class="panel" style="margin-top:16px"><div class="panel-title">峰值對照（同一筆量測）</div><div id="cmp-peak-wrap"></div></div>
+<div class="panel" style="margin-top:16px"><div class="panel-title">差異摘要</div><div id="cmp-summary" class="sum"></div></div>
 </div>
 </div>
 
@@ -150,63 +191,101 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-let ch1=null,ch2=null,chS=null;
-const G={freq:null,fft:null,leq:null,valid:null,isNan:null,pf:null,pd:null,n:0,nF:0,dt:.2,df:5};
+let ch1=null,ch2=null,chS=null,chCmpLeq=null,chCmpPf=null,chCmpFft=null,chCmpDiff=null;
+const G={freq:null,fft:null,leq:null,valid:null,isNan:null,pf:null,pd:null,n:0,nF:0,dt:.2,df:5,sheets:[]};
 const PC=['#e24b4a','#eb6834','#eda100','#1baf7a','#2a78d6','#7c3aed','#db2777','#0891b2','#65a30d','#a16207'];
 const FONT={family:"'Microsoft JhengHei',sans-serif",size:13};
 
 function uP(){const r=+$('inp-rate').value||1,s=+$('inp-samples').value||1;$('comp-df').textContent=`df = ${(r/s).toFixed(1)} Hz`;$('comp-dt').textContent=`dt = ${(s/r).toFixed(3)} 秒`;}
-$('inp-rate').addEventListener('input',uP);$('inp-samples').addEventListener('input',uP);uP();
+$('inp-rate').addEventListener('input',()=>{uP();scheduleSave();});
+$('inp-samples').addEventListener('input',()=>{uP();scheduleSave();});
+uP();
 function uSL(){$('vp').textContent=$('sl-prom').value+' dB';$('vd').textContent=$('sl-dist').value+' Hz';$('vt').textContent=$('sl-thresh').value+' dB';$('vn').textContent=$('sl-maxn').value;}
 
-// ── Storage (only params + leq + peaks, NOT full FFT) ──
-async function saveParams(){
-  try{
-    const d={rate:$('inp-rate').value,samp:$('inp-samples').value,fname:$('file-name').textContent,
-      leq:G.leq,pf:G.pf,pd:G.pd,freq:G.freq,n:G.n,nF:G.nF,
-      // Store FFT compressed: only keep data for overview, not full matrix
-      fftSample:null};
-    await window.storage.set('fft-params',JSON.stringify(d));
-  }catch(e){}
+let currentTab='overview';
+const UI_IDS=['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max','s-xmin','s-xmax','s-ymin','s-ymax','sl-prom','sl-dist','sl-thresh','sl-maxn'];
+
+// ── IndexedDB（重整後保留數據與設定）──
+const IDB_NAME='fft-analysis-db', IDB_STORE='kv';
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(IDB_NAME,1);
+    r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE);
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
 }
-async function saveFftChunk(){
-  // Store FFT in chunks to stay under 5MB
-  if(!G.fft)return;
+async function idbSet(key,val){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).put(val,key);
+    tx.oncomplete=()=>{db.close();res();};
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+async function idbGet(key){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const q=tx.objectStore(IDB_STORE).get(key);
+    q.onsuccess=()=>{db.close();res(q.result);};
+    q.onerror=()=>rej(q.error);
+  });
+}
+function collectUi(){
+  const ui={tab:currentTab,meas:$('meas-select').value,rate:$('inp-rate').value,samp:$('inp-samples').value,fname:$('file-name').textContent,
+    cmpA:$('cmp-a').value,cmpB:$('cmp-b').value,cmpMeas:$('cmp-meas').value};
+  UI_IDS.forEach(id=>ui[id]=$(id).value);
+  return ui;
+}
+function restoreUi(ui){
+  if(!ui)return;
+  if(ui.rate!=null)$('inp-rate').value=ui.rate;
+  if(ui.samp!=null)$('inp-samples').value=ui.samp;
+  if(ui.fname)$('file-name').textContent=ui.fname;
+  UI_IDS.forEach(id=>{if(ui[id]!=null)$(id).value=ui[id];});
+  uP();uSL();
+}
+let saveTimer=null;
+function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveAll(),300);}
+async function saveAll(){
   try{
-    const chunkSize=200;// freq bins per chunk
-    const nChunks=Math.ceil(G.nF/chunkSize);
-    for(let c=0;c<nChunks;c++){
-      const start=c*chunkSize,end=Math.min(start+chunkSize,G.nF);
-      const slice=G.fft.slice(start,end);
-      await window.storage.set(`fft-c${c}`,JSON.stringify(slice));
+    if(G.leq){
+      await idbSet('session',{
+        rate:$('inp-rate').value,samp:$('inp-samples').value,fname:$('file-name').textContent,
+        leq:G.leq,pf:G.pf,pd:G.pd,freq:G.freq,fft:G.fft,n:G.n,nF:G.nF,dt:G.dt,df:G.df,sheets:G.sheets
+      });
     }
-    await window.storage.set('fft-meta',JSON.stringify({nChunks,chunkSize,nF:G.nF}));
-  }catch(e){}
+    await idbSet('ui',collectUi());
+  }catch(e){console.warn('儲存失敗',e);}
 }
 async function loadAll(){
   try{
-    const r=await window.storage.get('fft-params');
-    if(!r)return false;
-    const d=JSON.parse(r.value);
-    $('inp-rate').value=d.rate;$('inp-samples').value=d.samp;$('file-name').textContent=d.fname;
-    uP();
-    G.leq=d.leq;G.pf=d.pf;G.pd=d.pd;G.freq=d.freq;G.n=d.n;G.nF=d.nF;
-    G.dt=(+d.samp)/(+d.rate);G.df=(+d.rate)/(+d.samp);
+    const d=await idbGet('session');
+    if(!d||!d.leq)return false;
+    $('inp-rate').value=d.rate;$('inp-samples').value=d.samp;$('file-name').textContent=d.fname||'';
+    G.leq=d.leq;G.pf=d.pf;G.pd=d.pd;G.freq=d.freq;G.fft=d.fft||null;G.n=d.n;G.nF=d.nF;
+    G.dt=d.dt??((+d.samp)/(+d.rate));G.df=d.df??((+d.rate)/(+d.samp));
+    G.sheets=d.sheets||[];
     G.valid=G.leq.map(v=>isFinite(v)&&v!==0);
     G.isNan=G.leq.map(v=>!isFinite(v));
-    // Load FFT chunks
-    const mr=await window.storage.get('fft-meta');
-    if(mr){
-      const meta=JSON.parse(mr.value);
-      G.fft=[];
-      for(let c=0;c<meta.nChunks;c++){
-        const cr=await window.storage.get(`fft-c${c}`);
-        if(cr){const arr=JSON.parse(cr.value);G.fft.push(...arr);}
-      }
-      if(G.fft.length<G.nF)G.fft=null;// incomplete
-    }
+    const ui=await idbGet('ui');
+    restoreUi(ui);
+    updateCompareTabVis();
     $('results').classList.remove('hidden');
     renderOverview();populateMS();
+    if(G.sheets.length>=2){
+      populateCmpSheets();
+      if(ui&&ui.cmpA!=null)$('cmp-a').value=ui.cmpA;
+      if(ui&&ui.cmpB!=null)$('cmp-b').value=ui.cmpB;
+    }
+    if(ui&&ui.meas!=null&&ui.meas!=='')$('meas-select').value=ui.meas;
+    if(ui&&ui.tab==='spectrum')switchTab('spectrum');
+    else if(ui&&ui.tab==='compare'&&G.sheets.length>=2){
+      if(ui.cmpMeas!=null)$('cmp-meas').value=ui.cmpMeas;
+      switchTab('compare');
+    }
     return true;
   }catch(e){return false;}
 }
@@ -214,17 +293,33 @@ async function loadAll(){
 // ── Tabs ──
 let specNeedsRender=false;
 function switchTab(n){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===n));
+  currentTab=n;
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===n));
   $('tab-overview').classList.toggle('hidden',n!=='overview');
   $('tab-spectrum').classList.toggle('hidden',n!=='spectrum');
-  if(n==='spectrum'){specNeedsRender=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(specNeedsRender)doSpec();}));}
+  $('tab-compare').classList.toggle('hidden',n!=='compare');
+  if(n==='spectrum'){
+    specNeedsRender=true;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(!specNeedsRender)return;
+      doSpec();
+      if(chS)chS.resize();
+    }));
+  }
+  if(n==='compare'){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      renderCompare();
+      [chCmpLeq,chCmpPf,chCmpFft,chCmpDiff].forEach(c=>{if(c)c.resize();});
+    }));
+  }
+  scheduleSave();
 }
 
 // ── Upload ──
 function loadFile(f){
   $('file-name').textContent=f.name;
   const r=new FileReader();
-  r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});processData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null}));}catch(er){alert('解析失敗: '+er.message);}};
+  r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});processWorkbook(wb);}catch(er){alert('解析失敗: '+er.message);}};
   r.readAsArrayBuffer(f);
 }
 $('file-input').addEventListener('change',e=>{if(e.target.files.length)loadFile(e.target.files[0]);});
@@ -232,52 +327,106 @@ document.body.addEventListener('dragover',e=>e.preventDefault());
 document.body.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files.length)loadFile(e.dataTransfer.files[0]);});
 
 // ── Process ──
-function processData(rows){
+function parseSheet(rows){
   const rate=+$('inp-rate').value||12800,samp=+$('inp-samples').value||2560;
-  G.dt=samp/rate;G.df=rate/samp;
+  const dt=samp/rate, df=rate/samp;
+  if(!rows||!rows.length||!rows[0])return null;
   const rawLeq=[];for(let c=2;c<rows[0].length;c++)rawLeq.push(parseFloat(rows[0][c]));
-  G.n=rawLeq.length;G.leq=rawLeq;
-  G.valid=rawLeq.map(v=>isFinite(v)&&v!==0);G.isNan=rawLeq.map(v=>!isFinite(v));
-  const freq=[];for(let r=1;r<rows.length;r++){const v=parseFloat(rows[r][1]);if(!isNaN(v))freq.push(v);else break;}
-  G.nF=freq.length;G.freq=freq;
-  const fft=[];for(let fi=0;fi<G.nF;fi++){const b=[];for(let mi=0;mi<G.n;mi++)b.push(parseFloat(rows[fi+1][mi+2])||0);fft.push(b);}
-  G.fft=fft;
+  const n=rawLeq.length;if(!n)return null;
+  const valid=rawLeq.map(v=>isFinite(v)&&v!==0), isNan=rawLeq.map(v=>!isFinite(v));
+  const freq=[];
+  for(let r=1;r<rows.length;r++){
+    const v=parseFloat(rows[r][1]);
+    if(isNaN(v))break;
+    if(freq.length&&v<freq[freq.length-1])break;
+    freq.push(v);
+  }
+  const nF=freq.length;if(!nF)return null;
+  const fft=[];for(let fi=0;fi<nF;fi++){const b=[];for(let mi=0;mi<n;mi++)b.push(parseFloat(rows[fi+1][mi+2])||0);fft.push(b);}
   const pf=[],pd=[];
-  for(let mi=0;mi<G.n;mi++){
-    if(!G.valid[mi]){pf.push(null);pd.push(null);continue;}
-    let mx=-Infinity,mxi=1;for(let fi=1;fi<G.nF;fi++){if(fft[fi][mi]>mx){mx=fft[fi][mi];mxi=fi;}}
+  for(let mi=0;mi<n;mi++){
+    if(!valid[mi]){pf.push(null);pd.push(null);continue;}
+    let mx=-Infinity,mxi=1;for(let fi=1;fi<nF;fi++){if(fft[fi][mi]>mx){mx=fft[fi][mi];mxi=fi;}}
     pf.push(freq[mxi]);pd.push(Math.round(mx*10)/10);
   }
-  G.pf=pf;G.pd=pd;
+  return{leq:rawLeq,freq,fft,pf,pd,n,nF,valid,isNan,dt,df};
+}
+function applySheet(S){
+  G.leq=S.leq;G.freq=S.freq;G.fft=S.fft;G.pf=S.pf;G.pd=S.pd;
+  G.n=S.n;G.nF=S.nF;G.valid=S.valid;G.isNan=S.isNan;G.dt=S.dt;G.df=S.df;
+}
+function updateCompareTabVis(){
+  const on=G.sheets.length>=2;
+  $('tab-btn-compare').classList.toggle('hidden',!on);
+  $('tab-btn-spectrum').classList.toggle('tab-end',!on);
+  if(!on&&currentTab==='compare')switchTab('overview');
+}
+function processWorkbook(wb){
+  G.sheets=[];
+  for(const name of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null});
+    const S=parseSheet(rows);
+    if(S)G.sheets.push({name,...S});
+  }
+  if(!G.sheets.length){alert('沒有可用的工作表資料');return;}
+  applySheet(G.sheets[0]);
+  updateCompareTabVis();
   $('results').classList.remove('hidden');
-  renderOverview();populateMS();saveParams();saveFftChunk();
+  renderOverview();populateMS();
+  if(G.sheets.length>=2){populateCmpSheets();renderCompare();}
+  saveAll();
 }
 
 function calcAvg(arr){let s=0,c=0;for(const v of arr){if(isFinite(v)&&v!==0){s+=Math.pow(10,v/10);c++;}}return c?10*Math.log10(s/c):0;}
 function clusterF(arr,tol){const v=arr.filter(f=>f!==null),sorted=[...v].sort((a,b)=>a-b),cl=[];for(const f of sorted){let ok=false;for(const c of cl){if(Math.abs(f-c.ctr)<tol){c.vs.push(f);c.ctr=c.vs.reduce((a,b)=>a+b,0)/c.vs.length;ok=true;break;}}if(!ok)cl.push({ctr:f,vs:[f]});}cl.sort((a,b)=>b.vs.length-a.vs.length);return cl;}
+
+function numOr(id,fallback){
+  const v=$(id).value.trim();
+  if(v==='')return fallback;
+  const n=+v;
+  return Number.isFinite(n)?n:fallback;
+}
+function getTimeWindow(){
+  const maxT=(G.n-1)*G.dt;
+  const rawMin=$('t-xmin').value.trim(), rawMax=$('t-xmax').value.trim();
+  const auto=!rawMin&&!rawMax;
+  let lo=numOr('t-xmin',0), hi=numOr('t-xmax',maxT);
+  if(lo>hi){const t=lo;lo=hi;hi=t;}
+  return{lo,hi,auto,maxT};
+}
+function inTimeRange(i){
+  const {lo,hi}=getTimeWindow();
+  const t=i*G.dt;
+  return t>=lo && t<=hi;
+}
 
 // ── Trend Axis ──
 function getTrendAxis(){
   const g=id=>{const v=$( id).value;return v===''?undefined:+v;};
   return{xmin:g('t-xmin'),xmax:g('t-xmax'),ymin:g('t-ymin'),ymax:g('t-ymax'),y1min:g('t-y1min'),y1max:g('t-y1max')};
 }
-function applyTrendAxis(){renderOverview();}
-function resetTrendAxis(){['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max'].forEach(id=>{$(id).value='';});renderOverview();}
+function applyTrendAxis(){renderOverview();scheduleSave();}
+function resetTrendAxis(){['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max'].forEach(id=>{$(id).value='';});renderOverview();scheduleSave();}
 
 // ── Overview ──
 function renderOverview(){
   const {leq,pf,pd,n,dt,df,freq,nF,valid,isNan}=G;
   const rate=+$('inp-rate').value||12800,samp=+$('inp-samples').value||2560;
-  const vLeq=leq.filter((_,i)=>valid[i]);
+  const tw=getTimeWindow();
+  const inWin=leq.map((_,i)=>inTimeRange(i));
+  const mask=leq.map((_,i)=>valid[i]&&inWin[i]);
+  const vLeq=leq.filter((_,i)=>mask[i]);
   const maxL=vLeq.length?Math.max(...vLeq):0;
-  const avgL=calcAvg(leq);
-  const vc=valid.filter(Boolean).length;
+  const avgL=calcAvg(leq.filter((_,i)=>mask[i]));
+  const vc=mask.filter(Boolean).length;
+  const nWin=inWin.filter(Boolean).length;
+  const span=tw.auto?tw.maxT:(tw.hi-tw.lo);
 
   $('info-cards').innerHTML=[
     {l:'最大 Run Leq',v:maxL.toFixed(1),u:'dBA'},
-    {l:'Leq（能量平均）',v:avgL.toFixed(1),u:'dBA'},
-    {l:'有效數據',v:vc,u:`/ ${n} 筆`},
-    {l:'總測試時間',v:((n-1)*dt).toFixed(1),u:'秒'}
+    {l:'Leq(平均噪音)',v:avgL.toFixed(1),u:'dBA'},
+    {l:'有效數據',v:vc,u:`/ ${nWin} 筆`},
+    {l:tw.auto?'總測試時間':'選取時長',v:span.toFixed(1),u:'秒'}
   ].map(c=>`<div class="info-card"><div class="label">${c.l}</div><div class="value">${c.v} <span class="unit">${c.u}</span></div></div>`).join('');
 
   if(ch1){ch1.destroy();}if(ch2){ch2.destroy();}
@@ -326,26 +475,30 @@ function renderOverview(){
   });
   setTimeout(()=>{if(ch1&&ch2){const w=ch1.scales.y1.width;ch2.options.scales.y1.afterFit=a=>{a.width=w;};ch2.update('none');}},250);
 
-  // Summary
-  const maxLi=leq.indexOf(maxL);
-  const vPd=pd.filter(v=>v!==null);const maxPd=vPd.length?Math.max(...vPd):0;const maxPdi=pd.indexOf(maxPd);
-  const tol=Math.max(df*5,50);const cls=clusterF(pf,tol);const topC=cls.slice(0,6).filter(c=>c.vs.length>0);
-  const mxC=Math.max(...topC.map(c=>c.vs.length));
-  const nanC=isNan.filter(Boolean).length,zeroC=leq.filter(v=>v===0).length;
+  // Summary（統計依 X 軸選取範圍）
+  let maxLi=-1;for(let i=0;i<n;i++){if(mask[i]&&leq[i]===maxL){maxLi=i;break;}}
+  const vPd=pd.filter((v,i)=>mask[i]&&v!==null);const maxPd=vPd.length?Math.max(...vPd):0;
+  let maxPdi=-1;for(let i=0;i<n;i++){if(mask[i]&&pd[i]===maxPd){maxPdi=i;break;}}
+  const pfWin=pf.map((v,i)=>mask[i]?v:null);
+  const tol=Math.max(df*5,50);const cls=clusterF(pfWin,tol);const topC=cls.slice(0,6).filter(c=>c.vs.length>0);
+  const mxC=topC.length?Math.max(...topC.map(c=>c.vs.length)):1;
+  let nanC=0,zeroC=0;
+  for(let i=0;i<n;i++){if(!inWin[i])continue;if(isNan[i])nanC++;else if(leq[i]===0)zeroC++;}
 
-  let cHtml=topC.map(c=>{const pct=(c.vs.length/vc*100).toFixed(1);const bw=Math.max(3,c.vs.length/mxC*180);return `<div class="stat-line"><span class="fbar" style="width:${bw}px"></span><b>~${Math.round(c.ctr)} Hz</b>　${c.vs.length} 次（${pct}%）</div>`;}).join('');
+  let cHtml=topC.map(c=>{const pct=vc?(c.vs.length/vc*100).toFixed(1):'0.0';const bw=Math.max(3,c.vs.length/mxC*180);return `<div class="stat-line"><span class="fbar" style="width:${bw}px"></span><b>~${Math.round(c.ctr)} Hz</b>　${c.vs.length} 次（${pct}%）</div>`;}).join('')||'<div class="stat-line">選取範圍內無有效峰值資料</div>';
   let skip='';if(nanC||zeroC)skip=`<div class="skip-note">排除數據：NaN ${nanC} 筆、0 值 ${zeroC} 筆（不計入統計）</div>`;
+  const rangeNote=tw.auto?`${tw.maxT.toFixed(1)} 秒（全部）`:`${tw.lo.toFixed(1)} – ${tw.hi.toFixed(1)} 秒`;
 
   $('summary').innerHTML=`
     <div class="sec"><div class="sec-title">📋 基本資訊</div><div class="row">
       <b>DAQ 參數</b>　Rate = ${rate} Hz　Samples = ${samp}　df = ${df.toFixed(1)} Hz　dt = ${dt.toFixed(3)}s<br>
-      <b>數據規模</b>　${n} 筆量測（有效 ${vc} 筆）× ${nF} 頻率 bins（${freq[0]} – ${freq[nF-1]} Hz）<br>
-      <b>測試時長</b>　${((n-1)*dt).toFixed(1)} 秒 ${skip}
+      <b>數據規模</b>　${n} 筆量測（範圍內有效 ${vc} / ${nWin} 筆）× ${nF} 頻率 bins（${freq[0]} – ${freq[nF-1]} Hz）<br>
+      <b>統計範圍</b>　${rangeNote} ${skip}
     </div></div>
     <div class="sec"><div class="sec-title">📊 統計數據</div><div class="row">
-      <b>最大 Run Leq</b>　${maxL.toFixed(1)} dBA　@ ${(maxLi*dt).toFixed(1)}s（#${maxLi+1}）<br>
-      <b>Leq（能量平均）</b>　${avgL.toFixed(1)} dBA<br>
-      <b>最大峰值幅值</b>　${maxPd.toFixed(1)} dB　@ ${pf[maxPdi]} Hz　${(maxPdi*dt).toFixed(1)}s（#${maxPdi+1}）
+      <b>最大 Run Leq</b>　${vLeq.length?maxL.toFixed(1)+' dBA　@ '+(maxLi*dt).toFixed(1)+'s（#'+(maxLi+1)+'）':'—' }<br>
+      <b>Leq(平均噪音)</b>　${vLeq.length?avgL.toFixed(1)+' dBA':'—'}<br>
+      <b>最大峰值幅值</b>　${vPd.length?maxPd.toFixed(1)+' dB　@ '+pf[maxPdi]+' Hz　'+(maxPdi*dt).toFixed(1)+'s（#'+(maxPdi+1)+'）':'—'}
     </div></div>
     <div class="sec"><div class="sec-title">🎯 峰值頻率落點分布</div>${cHtml}</div>`;
 }
@@ -361,7 +514,12 @@ function populateMS(){
   }
 }
 function chgM(d){const sel=$('meas-select');const opts=[...sel.options].map(o=>+o.value);let idx=opts.indexOf(+sel.value)+d;if(idx<0)idx=0;if(idx>=opts.length)idx=opts.length-1;sel.value=opts[idx];doSpec();}
-function doSpec(){if(G.freq&&G.fft)renderSpec(+$('meas-select').value);}
+function doSpec(){
+  if(!G.freq)return;
+  if(!G.fft){$('spec-title').textContent='請重新上傳檔案以載入 FFT 數據';return;}
+  renderSpec(+$('meas-select').value);
+  scheduleSave();
+}
 function resetSpecAxis(){['s-xmin','s-xmax','s-ymin','s-ymax'].forEach(id=>{$(id).value='';});doSpec();}
 
 function findPeaks(data,prom,distB,thresh,maxN){
@@ -378,31 +536,28 @@ function renderSpec(mi){
   const {freq,fft,nF,leq,df}=G;
   const spec=[];for(let fi=0;fi<nF;fi++)spec.push(fft[fi][mi]);
 
+  const gv=id=>{const v=$(id).value;return v===''?undefined:+v;};
+  const freqMax=freq.reduce((m,f)=>f>m?f:m,0);
+  const xMin=gv('s-xmin')??0, xMax=gv('s-xmax')??freqMax;
+  const yMin=gv('s-ymin'), yMax=gv('s-ymax');
+
   const prom=+$('sl-prom').value,distHz=+$('sl-dist').value,thresh=+$('sl-thresh').value,maxN=+$('sl-maxn').value;
-  const peaks=findPeaks(spec,prom,Math.max(1,Math.round(distHz/df)),thresh,maxN);
+  const peaks=findPeaks(spec,prom,Math.max(1,Math.round(distHz/df)),thresh,maxN)
+    .filter(p=>freq[p.idx]>=xMin&&freq[p.idx]<=xMax);
 
   const ls=leq[mi]===0?'(空白)':leq[mi].toFixed(1)+' dBA';
   $('meas-info').textContent=`Run Leq = ${ls}`;
   $('spec-title').textContent=`頻譜 #${mi+1}（${(mi*G.dt).toFixed(1)}s）— 偵測到 ${peaks.length} 個峰值`;
   specNeedsRender=false;
 
-  // Destroy old chart and recreate canvas (bulletproof)
   if(chS){chS.destroy();chS=null;}
-  const box=$('spec-chart-box');
-  box.innerHTML='<canvas></canvas>';
-  const canvas=box.querySelector('canvas');
+  const canvas=$('cS');
 
-  // Axis
-  const gv=id=>{const v=$(id).value;return v===''?undefined:+v;};
-  const xMin=gv('s-xmin')??0, xMax=gv('s-xmax')??freq[nF-1];
-  const yMin=gv('s-ymin'), yMax=gv('s-ymax');
-
-  // Build {x,y} data
   const xyData=new Array(nF);
   for(let i=0;i<nF;i++) xyData[i]={x:freq[i],y:spec[i]};
 
   chS=new Chart(canvas,{
-    type:'scatter',
+    type:'line',
     data:{datasets:[{
       label:'頻譜 (dB)',
       data:xyData,
@@ -441,20 +596,46 @@ function renderSpec(mi){
       afterDatasetsDraw(chart){
         const ctx=chart.ctx,xs=chart.scales.x,ys=chart.scales.y;
         ctx.save();
+        ctx.font="bold 12px 'Microsoft JhengHei',sans-serif";
+        ctx.textBaseline='middle';
+        const placed=[];
         peaks.forEach((p,i)=>{
           const px=xs.getPixelForValue(freq[p.idx]),py=ys.getPixelForValue(p.val);
           if(px<xs.left-5||px>xs.right+5||py<ys.top-5||py>ys.bottom+5)return;
           const col=PC[i%PC.length];
-          ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(px,py-10);ctx.lineTo(px-6,py+2);ctx.lineTo(px+6,py+2);ctx.closePath();ctx.fill();
-          ctx.strokeStyle=col;ctx.globalAlpha=.25;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(px,py+2);ctx.lineTo(px,ys.bottom);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
-          ctx.fillStyle=col;ctx.font="bold 12px 'Microsoft JhengHei',sans-serif";ctx.textAlign='center';
-          ctx.fillText(`${freq[p.idx].toFixed(0)} Hz`,px,py-16);
-          ctx.font="11px sans-serif";ctx.fillText(`${p.val.toFixed(1)} dB`,px,py-30);
+          const l1=`${freq[p.idx].toFixed(0)} Hz`, l2=`${p.val.toFixed(1)} dB`;
+          const tw=Math.max(ctx.measureText(l1).width,ctx.measureText(l2).width);
+          const bw=tw+16, bh=38;
+          let bx=px-bw/2, by=py-bh-16;
+          if(by<ys.top+2) by=py+12;
+          if(bx<xs.left+2) bx=xs.left+2;
+          if(bx+bw>xs.right-2) bx=xs.right-bw-2;
+          for(const b of placed){
+            if(!(bx+bw<b.x||bx>b.x+b.w||by+bh<b.y||by>b.y+b.h)){
+              by=Math.min(b.y+b.h+4, ys.bottom-bh-2);
+              if(by+bh>ys.bottom-2) by=Math.max(ys.top+2, b.y-bh-4);
+            }
+          }
+          placed.push({x:bx,y:by,w:bw,h:bh});
+          ctx.strokeStyle=col;ctx.globalAlpha=.28;ctx.setLineDash([4,3]);ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,ys.bottom);ctx.stroke();
+          ctx.setLineDash([]);ctx.globalAlpha=1;
+          ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);
+          ctx.fillStyle='#fff';ctx.fill();
+          ctx.lineWidth=2.5;ctx.strokeStyle=col;ctx.stroke();
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,6); else ctx.rect(bx,by,bw,bh);
+          ctx.fillStyle='rgba(255,255,255,0.95)';ctx.fill();
+          ctx.lineWidth=1.6;ctx.strokeStyle=col;ctx.stroke();
+          ctx.fillStyle='#1a1a1a';ctx.textAlign='center';
+          ctx.fillText(l1,bx+bw/2,by+bh/2-8);
+          ctx.fillText(l2,bx+bw/2,by+bh/2+9);
         });
         ctx.restore();
       }
     }]
   });
+  requestAnimationFrame(()=>{if(chS)chS.resize();});
 
   // Table
   let h=`<table class="ptable"><thead><tr><th>#</th><th>頻率 (Hz)</th><th>幅值 (dB)</th><th>突出度 (dB)</th><th>頻段</th></tr></thead><tbody>`;
@@ -462,6 +643,156 @@ function renderSpec(mi){
   h+=`</tbody></table>`;
   if(!peaks.length)h=`<p style="color:#888;padding:12px;font-size:14px">未偵測到符合條件的峰值，請調低突出度或最低門檻</p>`;
   $('peak-wrap').innerHTML=h;
+}
+
+// ── Compare (2+ worksheets) ──
+function populateCmpSheets(){
+  const a=$('cmp-a'),b=$('cmp-b');
+  a.innerHTML='';b.innerHTML='';
+  G.sheets.forEach((S,i)=>{
+    const t=S.name||`工作表 ${i+1}`;
+    const o1=document.createElement('option');o1.value=i;o1.textContent=t;a.appendChild(o1);
+    const o2=document.createElement('option');o2.value=i;o2.textContent=t;b.appendChild(o2);
+  });
+  a.value='0';b.value=G.sheets.length>1?'1':'0';
+  populateCmpMS();
+}
+function populateCmpMS(){
+  const A=cmpSheet('a'),B=cmpSheet('b');if(!A||!B)return;
+  const sel=$('cmp-meas');const keep=sel.value;sel.innerHTML='';
+  const n=Math.min(A.n,B.n);
+  for(let i=0;i<n;i++){
+    if((A.isNan&&A.isNan[i])&&(B.isNan&&B.isNan[i]))continue;
+    const o=document.createElement('option');o.value=i;
+    const la=A.leq[i],lb=B.leq[i];
+    o.textContent=`#${i+1}（${(i*G.dt).toFixed(1)}s） A=${isFinite(la)?la.toFixed(1):'—'} / B=${isFinite(lb)?lb.toFixed(1):'—'} dBA`;
+    sel.appendChild(o);
+  }
+  if(keep!==''&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
+}
+function cmpSheet(ab){const i=+$('cmp-'+ab).value;return G.sheets[i]||null;}
+function chgCmpM(d){const sel=$('cmp-meas');const opts=[...sel.options].map(o=>+o.value);let idx=opts.indexOf(+sel.value)+d;if(idx<0)idx=0;if(idx>=opts.length)idx=opts.length-1;sel.value=opts[idx];renderCmpSpec();}
+function nearestBin(freqArr,f){
+  if(!freqArr.length)return 0;
+  let lo=0,hi=freqArr.length-1;
+  while(lo<hi){const m=(lo+hi)>>1;if(freqArr[m]<f)lo=m+1;else hi=m;}
+  if(lo>0&&Math.abs(freqArr[lo-1]-f)<=Math.abs(freqArr[lo]-f))return lo-1;
+  return lo;
+}
+function lineChart(canvas,datasets,xTitle,yTitle,xmin,xmax){
+  return new Chart(canvas,{
+    type:'line',
+    data:{datasets},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'nearest',intersect:false,axis:'x'},
+      plugins:{legend:{display:false},tooltip:{filter:c=>c.parsed.y!=null}},
+      scales:{
+        x:{type:'linear',min:xmin,max:xmax,title:{display:true,text:xTitle,font:{...FONT,size:14}},grid:{color:'#e8e8e8'},ticks:{font:FONT}},
+        y:{title:{display:true,text:yTitle,font:{...FONT,size:14}},grid:{color:'#e8e8e8'},ticks:{font:FONT}}
+      }}
+  });
+}
+function renderCompare(){
+  const A=cmpSheet('a'),B=cmpSheet('b');
+  if(!A||!B)return;
+  populateCmpMS();
+  $('cmp-sheet-info').textContent=`A「${A.name}」 vs B「${B.name}」`;
+  const dt=G.dt, tw=getTimeWindow();
+  const n=Math.min(A.n,B.n);
+  const leqA=[],leqB=[],pfA=[],pfB=[];
+  const dLeq=[],dPf=[];
+  for(let i=0;i<n;i++){
+    const t=+(i*dt).toFixed(3);
+    const okA=A.valid[i], okB=B.valid[i];
+    leqA.push({x:t,y:okA?A.leq[i]:null});
+    leqB.push({x:t,y:okB?B.leq[i]:null});
+    pfA.push({x:t,y:okA?A.pf[i]:null});
+    pfB.push({x:t,y:okB?B.pf[i]:null});
+    dLeq.push({x:t,y:(okA&&okB)?A.leq[i]-B.leq[i]:null});
+    dPf.push({x:t,y:(okA&&okB&&A.pf[i]!=null&&B.pf[i]!=null)?A.pf[i]-B.pf[i]:null});
+  }
+  let sAbsL=0,cL=0,sAbsF=0,cF=0,maxAbsL=0,maxAbsF=0;
+  const avgA=calcAvg(A.leq.filter((_,i)=>i<n&&A.valid[i]&&inTimeRange(i)));
+  const avgB=calcAvg(B.leq.filter((_,i)=>i<n&&B.valid[i]&&inTimeRange(i)));
+  for(let i=0;i<n;i++){
+    if(!inTimeRange(i)||!A.valid[i]||!B.valid[i])continue;
+    const dl=A.leq[i]-B.leq[i];sAbsL+=Math.abs(dl);cL++;if(Math.abs(dl)>maxAbsL)maxAbsL=Math.abs(dl);
+    if(A.pf[i]!=null&&B.pf[i]!=null){const dfq=A.pf[i]-B.pf[i];sAbsF+=Math.abs(dfq);cF++;if(Math.abs(dfq)>maxAbsF)maxAbsF=Math.abs(dfq);}
+  }
+  $('cmp-cards').innerHTML=[
+    {l:'Δ Leq(平均噪音) A−B',v:(avgA-avgB).toFixed(1),u:'dBA'},
+    {l:'平均 |Δ Leq|',v:cL?(sAbsL/cL).toFixed(2):'—',u:'dBA'},
+    {l:'平均 |Δ 峰值頻率|',v:cF?(sAbsF/cF).toFixed(0):'—',u:'Hz'},
+    {l:'對齊有效筆數',v:cL,u:`/ ${n}`}
+  ].map(c=>`<div class="info-card"><div class="label">${c.l}</div><div class="value">${c.v} <span class="unit">${c.u}</span></div></div>`).join('');
+
+  const xmin=tw.auto?0:tw.lo, xmax=tw.auto?((n-1)*dt):tw.hi;
+  const ds=(data,col,fill)=>({data,borderColor:col,backgroundColor:fill||col,fill:false,spanGaps:false,borderWidth:2,pointRadius:n>200?.4:1.2,pointHoverRadius:4,tension:.2});
+  if(chCmpLeq)chCmpLeq.destroy();
+  chCmpLeq=lineChart($('cCmpLeq'),[ds(leqA,'#2a78d6'),ds(leqB,'#eb6834')], '時間 (秒)','Run Leq (dBA)',xmin,xmax);
+  if(chCmpPf)chCmpPf.destroy();
+  chCmpPf=lineChart($('cCmpPf'),[ds(pfA,'#2a78d6'),ds(pfB,'#eb6834')], '時間 (秒)','峰值頻率 (Hz)',xmin,xmax);
+
+  $('cmp-summary').innerHTML=`
+    <div class="sec"><div class="sec-title">📊 趨勢差異</div><div class="row">
+      <b>Leq(平均噪音)</b>　A ${avgA.toFixed(1)} dBA　B ${avgB.toFixed(1)} dBA　Δ ${ (avgA-avgB).toFixed(1)} dBA<br>
+      <b>平均絕對差值</b>　|Δ Leq| ${cL?(sAbsL/cL).toFixed(2):'—'} dBA　|Δ 峰值頻率| ${cF?(sAbsF/cF).toFixed(0):'—'} Hz<br>
+      <b>最大絕對差值</b>　|Δ Leq| ${maxAbsL.toFixed(2)} dBA　|Δ 峰值頻率| ${maxAbsF.toFixed(0)} Hz
+    </div></div>`;
+  renderCmpSpec();
+}
+function renderCmpSpec(){
+  const A=cmpSheet('a'),B=cmpSheet('b');
+  if(!A||!B||!A.fft||!B.fft)return;
+  const mi=+$('cmp-meas').value||0;
+  const n=Math.min(A.n,B.n);
+  if(mi<0||mi>=n)return;
+  $('cmp-meas-info').textContent=`A Leq=${isFinite(A.leq[mi])?A.leq[mi].toFixed(1):'—'}　B Leq=${isFinite(B.leq[mi])?B.leq[mi].toFixed(1):'—'} dBA`;
+  $('cmp-fft-title').textContent=`FFT 疊圖與差值（A − B）— #${mi+1}（${(mi*G.dt).toFixed(1)}s）`;
+
+  const xyA=[],xyB=[],xyD=[];
+  const fMax=Math.max(A.freq[A.nF-1]||0,B.freq[B.nF-1]||0);
+  for(let i=0;i<A.nF;i++){
+    const f=A.freq[i];
+    const bj=nearestBin(B.freq,f);
+    xyA.push({x:f,y:A.fft[i][mi]});
+    xyB.push({x:f,y:B.fft[bj][mi]});
+    xyD.push({x:f,y:A.fft[i][mi]-B.fft[bj][mi]});
+  }
+  const ds=(data,col)=>({data,borderColor:col,backgroundColor:col,fill:false,borderWidth:1.4,pointRadius:0,pointHoverRadius:3,tension:0});
+  if(chCmpFft)chCmpFft.destroy();
+  chCmpFft=lineChart($('cCmpFft'),[ds(xyA,'#2a78d6'),ds(xyB,'#eb6834')],'頻率 (Hz)','幅值 (dB)',0,fMax);
+  if(chCmpDiff)chCmpDiff.destroy();
+  chCmpDiff=lineChart($('cCmpDiff'),[{...ds(xyD,'#7c3aed'),fill:true,backgroundColor:'rgba(124,58,237,0.08)'}],'頻率 (Hz)','差值 A−B (dB)',0,fMax);
+
+  const prom=+$('sl-prom').value,distHz=+$('sl-dist').value,thresh=+$('sl-thresh').value,maxN=+$('sl-maxn').value;
+  const specA=xyA.map(p=>p.y), specB=xyB.map(p=>p.y);
+  const distB=Math.max(1,Math.round(distHz/(A.df||G.df||5)));
+  const pkA=findPeaks(specA,prom,distB,thresh,maxN);
+  const pkB=findPeaks(specB,prom,distB,thresh,maxN);
+  const used=new Set();
+  const rows=[];
+  pkA.forEach(pa=>{
+    let best=-1,bestD=Infinity;
+    pkB.forEach((pb,j)=>{if(used.has(j))return;const d=Math.abs(A.freq[pa.idx]-A.freq[pb.idx]);if(d<bestD){bestD=d;best=j;}});
+    if(best>=0&&bestD<=Math.max(distHz,A.df*2)){
+      used.add(best);
+      const pb=pkB[best],fA=A.freq[pa.idx],fB=A.freq[pb.idx];
+      rows.push({fA,fB,df:fA-fB,aA:pa.val,aB:pb.val,da:pa.val-pb.val,match:true});
+    }else{
+      rows.push({fA:A.freq[pa.idx],fB:null,df:null,aA:pa.val,aB:null,da:null,match:false});
+    }
+  });
+  pkB.forEach((pb,j)=>{if(used.has(j))return;rows.push({fA:null,fB:A.freq[pb.idx],df:null,aA:null,aB:pb.val,da:null,match:false});});
+  rows.sort((x,y)=>(x.fA??x.fB)-(y.fA??y.fB));
+  let h=`<table class="ptable"><thead><tr><th>A 頻率</th><th>B 頻率</th><th>Δf (Hz)</th><th>A 幅值</th><th>B 幅值</th><th>ΔdB</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    h+=`<tr><td>${r.fA==null?'—':r.fA.toFixed(1)}</td><td>${r.fB==null?'—':r.fB.toFixed(1)}</td><td>${r.df==null?'—':r.df.toFixed(1)}</td><td>${r.aA==null?'—':r.aA.toFixed(1)}</td><td>${r.aB==null?'—':r.aB.toFixed(1)}</td><td>${r.da==null?'—':r.da.toFixed(1)}</td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  if(!rows.length)h=`<p style="color:#888;padding:12px;font-size:14px">此筆未偵測到峰值，可到「頻譜峰值分析」調低突出度後再比較</p>`;
+  $('cmp-peak-wrap').innerHTML=h;
+  scheduleSave();
 }
 
 // ── Init ──
