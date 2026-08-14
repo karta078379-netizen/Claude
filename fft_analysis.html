@@ -67,7 +67,36 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 .sum .row b{color:#111;margin-right:8px}
 .stat-line{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:15px}
 .fbar{display:inline-block;height:18px;background:linear-gradient(90deg,#2a78d6,#5ba3e6);border-radius:3px;margin-right:8px;vertical-align:middle;min-width:3px}
-.skip-note{margin-top:6px;color:#999;font-size:13px}
+.pf-dist-row{font-size:15px;line-height:2.2;color:#333;padding:4px 0}
+.pf-dist-row b{color:#2a78d6;margin-right:10px;min-width:28px;display:inline-block}
+.pf-dist-row.row-b b{color:#eb6834}
+.pf-dist-item{margin-right:24px;white-space:nowrap}
+.cmp-peak-head{font-size:16px;font-weight:600;color:#333;margin-bottom:12px;padding:8px 12px;background:#f8f9fb;border-radius:6px}
+.cmp-peak-head .va{color:#2a78d6}
+.cmp-peak-head .vb{color:#eb6834}
+.report-doc{background:#fff;line-height:1.85;font-size:14px;color:#333}
+.report-doc h2{font-size:20px;font-weight:700;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #2a78d6;color:#222}
+.report-doc h2:first-child{margin-top:0}
+.report-doc h3{font-size:16px;font-weight:600;margin:18px 0 10px;color:#444}
+.rpt-meta{background:#f8f9fb;border:1px solid #e8e8e8;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:14px;color:#555;line-height:2}
+.rpt-table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0 20px}
+.rpt-table th{background:#f0f4fa;padding:10px 12px;text-align:left;font-weight:600;color:#444;border:1px solid #dde3ec}
+.rpt-table td{padding:9px 12px;border:1px solid #e8e8e8;vertical-align:top}
+.rpt-table tr:nth-child(even) td{background:#fafbfc}
+.rpt-sheet-card{border:1px solid #e0e0e0;border-radius:8px;padding:16px 18px;margin-bottom:16px;background:#fafbfc}
+.rpt-sheet-card .name{font-size:17px;font-weight:700;color:#2a78d6;margin-bottom:10px}
+.rpt-pf{font-family:Consolas,'Courier New',monospace;font-size:13px;color:#333}
+.rpt-note{font-size:13px;color:#888;margin-top:20px;padding-top:12px;border-top:1px dashed #ddd}
+.rpt-bar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:14px}
+.rpt-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.rpt-dl-btns{display:flex;gap:8px;flex-wrap:wrap}
+.ubtn.secondary{background:#fff;color:#2a78d6;border:1px solid #2a78d6}
+.ubtn.secondary:hover{background:#f0f6ff}
+.rpt-sec-title{font-size:20px;font-weight:700;margin:24px 0 14px;padding-bottom:8px;border-bottom:2px solid #2a78d6;color:#222}
+.rpt-conclusion-edit{min-height:120px;border:1px dashed #ccc;border-radius:8px;padding:14px 18px;background:#fff;font-size:14px;line-height:1.85;outline:none}
+.rpt-conclusion-edit:focus{border-color:#2a78d6;box-shadow:0 0 0 2px rgba(42,120,214,.15)}
+.rpt-conclusion-edit:empty::before{content:attr(data-placeholder);color:#aaa}
+.rpt-conclusion{min-height:60px}
 </style>
 </head>
 <body>
@@ -94,10 +123,16 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
   <div class="tab active" data-tab="overview" onclick="switchTab('overview')">趨勢總覽</div>
   <div class="tab" id="tab-btn-spectrum" data-tab="spectrum" onclick="switchTab('spectrum')">頻譜峰值分析</div>
   <div class="tab hidden" id="tab-btn-compare" data-tab="compare" onclick="switchTab('compare')">差異比較</div>
+  <div class="tab hidden" id="tab-btn-report" data-tab="report" onclick="switchTab('report')">分析報告</div>
 </div>
 
 <!-- ═══ Tab 1 ═══ -->
 <div id="tab-overview">
+<div class="panel" style="margin-bottom:16px;padding:14px 20px">
+  <div class="mn" style="margin-bottom:0">
+    <div class="pg"><label>工作表</label><select id="overview-sheet" onchange="onOverviewSheetChange()"></select></div>
+  </div>
+</div>
 <div class="info-row" id="info-cards"></div>
 <div class="charts">
   <div class="cs">
@@ -113,6 +148,11 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
   </div>
   <div class="cs">
     <div class="ct">峰值頻率對應幅值 (dB)</div>
+    <div class="ax-row" id="ax-amp">
+      <label>X:</label><input id="t2-xmin" placeholder="auto"> – <input id="t2-xmax" placeholder="auto"> <span>秒</span>
+      <label style="margin-left:8px">Y:</label><input id="t2-ymin" placeholder="auto"> – <input id="t2-ymax" placeholder="auto"> <span>dB</span>
+      <button onclick="applyTrendAxis()">套用</button><button onclick="resetAmpAxis()">自動</button>
+    </div>
     <div style="position:relative;height:220px"><canvas id="c2"></canvas></div>
   </div>
 </div>
@@ -123,6 +163,7 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 <div id="tab-spectrum" class="hidden">
 <div class="panel" style="margin-bottom:0">
   <div class="mn">
+    <div class="pg"><label>工作表</label><select id="spectrum-sheet" onchange="onSpectrumSheetChange()"></select></div>
     <button onclick="chgM(-1)">◀ 上一筆</button>
     <div class="pg"><select id="meas-select" onchange="doSpec()"></select></div>
     <button onclick="chgM(1)">下一筆 ▶</button>
@@ -157,14 +198,28 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
   </div>
 </div>
 <div class="info-row" id="cmp-cards"></div>
+<div class="panel" style="margin-bottom:16px;padding:14px 20px">
+  <div class="panel-title">峰值頻率落點分布（前三名）</div>
+  <div id="cmp-pf-dist"></div>
+</div>
 <div class="charts">
   <div class="cs">
     <div class="ct">Run Leq 比較</div>
+    <div class="ax-row">
+      <label>X:</label><input id="cl-xmin" placeholder="auto"> – <input id="cl-xmax" placeholder="auto"> <span>秒</span>
+      <label style="margin-left:8px">Y:</label><input id="cl-ymin" placeholder="auto"> – <input id="cl-ymax" placeholder="auto"> <span>dBA</span>
+      <button onclick="renderCompare()">套用</button><button onclick="resetCmpLeqAxis()">自動</button>
+    </div>
     <div style="position:relative;height:260px"><canvas id="cCmpLeq"></canvas></div>
     <div class="legend"><span><i style="background:#2a78d6"></i>A</span><span><i style="background:#eb6834"></i>B</span></div>
   </div>
   <div class="cs">
     <div class="ct">峰值頻率比較</div>
+    <div class="ax-row">
+      <label>X:</label><input id="cp-xmin" placeholder="auto"> – <input id="cp-xmax" placeholder="auto"> <span>秒</span>
+      <label style="margin-left:8px">Y:</label><input id="cp-ymin" placeholder="auto"> – <input id="cp-ymax" placeholder="auto"> <span>Hz</span>
+      <button onclick="renderCompare()">套用</button><button onclick="resetCmpPfAxis()">自動</button>
+    </div>
     <div style="position:relative;height:260px"><canvas id="cCmpPf"></canvas></div>
     <div class="legend"><span><i style="background:#2a78d6"></i>A</span><span><i style="background:#eb6834"></i>B</span></div>
   </div>
@@ -176,14 +231,37 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
       <button onclick="chgCmpM(1)">下一筆 ▶</button>
       <div class="mi" id="cmp-meas-info"></div>
     </div>
+    <div class="ax-row">
+      <label>X:</label><input id="cf-xmin" placeholder="auto"> – <input id="cf-xmax" placeholder="auto"> <span>Hz</span>
+      <label style="margin-left:8px">Y:</label><input id="cf-ymin" placeholder="auto"> – <input id="cf-ymax" placeholder="auto"> <span>dB</span>
+      <button onclick="renderCmpSpec()">套用</button><button onclick="resetCmpFftAxis()">自動</button>
+    </div>
     <div style="position:relative;height:280px"><canvas id="cCmpFft"></canvas></div>
     <div class="legend"><span><i style="background:#2a78d6"></i>A 頻譜</span><span><i style="background:#eb6834"></i>B 頻譜</span></div>
+    <div class="ax-row" style="margin-top:12px">
+      <label>X:</label><input id="cd-xmin" placeholder="auto"> – <input id="cd-xmax" placeholder="auto"> <span>Hz</span>
+      <label style="margin-left:8px">Y:</label><input id="cd-ymin" placeholder="auto"> – <input id="cd-ymax" placeholder="auto"> <span>dB</span>
+      <button onclick="renderCmpSpec()">套用</button><button onclick="resetCmpDiffAxis()">自動</button>
+    </div>
     <div style="position:relative;height:220px;margin-top:12px"><canvas id="cCmpDiff"></canvas></div>
     <div class="legend"><span><i style="background:#7c3aed"></i>差值 A−B (dB)</span></div>
   </div>
 </div>
-<div class="panel" style="margin-top:16px"><div class="panel-title">峰值對照（同一筆量測）</div><div id="cmp-peak-wrap"></div></div>
-<div class="panel" style="margin-top:16px"><div class="panel-title">差異摘要</div><div id="cmp-summary" class="sum"></div></div>
+<div class="panel" style="margin-top:16px"><div class="panel-title">峰值對照（同一筆量測）</div><div id="cmp-peak-head" class="cmp-peak-head"></div><div id="cmp-peak-wrap"></div></div>
+</div>
+
+<!-- ═══ Tab 4：分析報告 ═══ -->
+<div id="tab-report" class="hidden">
+<div class="panel">
+  <div class="rpt-toolbar">
+    <div class="panel-title" style="margin-bottom:0">FFT 噪音分析報告</div>
+    <button class="ubtn" onclick="downloadReport()">⬇ 下載報告 (HTML)</button>
+  </div>
+  <div id="report-content" class="report-doc"></div>
+  <h2 class="rpt-sec-title" id="report-conclusion-title">綜合結論</h2>
+  <div id="report-conclusion-edit" class="rpt-conclusion-edit" contenteditable="true" data-placeholder="請在此填寫結論（留空亦可，下載時一併包含）"></div>
+  <div class="rpt-note" style="margin-top:16px">※ 本報告由 FFT / PSD 噪音分析工具自動產生，僅供工程參考。</div>
+</div>
 </div>
 </div>
 
@@ -203,7 +281,7 @@ uP();
 function uSL(){$('vp').textContent=$('sl-prom').value+' dB';$('vd').textContent=$('sl-dist').value+' Hz';$('vt').textContent=$('sl-thresh').value+' dB';$('vn').textContent=$('sl-maxn').value;}
 
 let currentTab='overview';
-const UI_IDS=['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max','s-xmin','s-xmax','s-ymin','s-ymax','sl-prom','sl-dist','sl-thresh','sl-maxn'];
+const UI_IDS=['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max','t2-xmin','t2-xmax','t2-ymin','t2-ymax','s-xmin','s-xmax','s-ymin','s-ymax','sl-prom','sl-dist','sl-thresh','sl-maxn','cl-xmin','cl-xmax','cl-ymin','cl-ymax','cp-xmin','cp-xmax','cp-ymin','cp-ymax','cf-xmin','cf-xmax','cf-ymin','cf-ymax','cd-xmin','cd-xmax','cd-ymin','cd-ymax'];
 
 // ── IndexedDB（重整後保留數據與設定）──
 const IDB_NAME='fft-analysis-db', IDB_STORE='kv';
@@ -235,6 +313,7 @@ async function idbGet(key){
 }
 function collectUi(){
   const ui={tab:currentTab,meas:$('meas-select').value,rate:$('inp-rate').value,samp:$('inp-samples').value,fname:$('file-name').textContent,
+    overviewSheet:$('overview-sheet').value,spectrumSheet:$('spectrum-sheet').value,
     cmpA:$('cmp-a').value,cmpB:$('cmp-b').value,cmpMeas:$('cmp-meas').value};
   UI_IDS.forEach(id=>ui[id]=$(id).value);
   return ui;
@@ -274,18 +353,26 @@ async function loadAll(){
     restoreUi(ui);
     updateCompareTabVis();
     $('results').classList.remove('hidden');
-    renderOverview();populateMS();
+    populateSheetSelects();
+    if(ui&&ui.overviewSheet!=null)$('overview-sheet').value=ui.overviewSheet;
+    if(ui&&ui.spectrumSheet!=null)$('spectrum-sheet').value=ui.spectrumSheet;
+    applySheet(G.sheets[+$('overview-sheet').value||0]);
+    renderOverview();populateMS();renderReport();
     if(G.sheets.length>=2){
       populateCmpSheets();
       if(ui&&ui.cmpA!=null)$('cmp-a').value=ui.cmpA;
       if(ui&&ui.cmpB!=null)$('cmp-b').value=ui.cmpB;
     }
     if(ui&&ui.meas!=null&&ui.meas!=='')$('meas-select').value=ui.meas;
-    if(ui&&ui.tab==='spectrum')switchTab('spectrum');
+    if(ui&&ui.tab==='spectrum'){
+      applySheet(G.sheets[+$('spectrum-sheet').value||0]);
+      switchTab('spectrum');
+    }
     else if(ui&&ui.tab==='compare'&&G.sheets.length>=2){
       if(ui.cmpMeas!=null)$('cmp-meas').value=ui.cmpMeas;
       switchTab('compare');
     }
+    else if(ui&&ui.tab==='report')switchTab('report');
     return true;
   }catch(e){return false;}
 }
@@ -298,7 +385,14 @@ function switchTab(n){
   $('tab-overview').classList.toggle('hidden',n!=='overview');
   $('tab-spectrum').classList.toggle('hidden',n!=='spectrum');
   $('tab-compare').classList.toggle('hidden',n!=='compare');
+  $('tab-report').classList.toggle('hidden',n!=='report');
+  if(n==='overview'){
+    applySheet(G.sheets[+$('overview-sheet').value||0]);
+    renderOverview();
+  }
   if(n==='spectrum'){
+    applySheet(G.sheets[+$('spectrum-sheet').value||0]);
+    populateMS();
     specNeedsRender=true;
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       if(!specNeedsRender)return;
@@ -312,6 +406,7 @@ function switchTab(n){
       [chCmpLeq,chCmpPf,chCmpFft,chCmpDiff].forEach(c=>{if(c)c.resize();});
     }));
   }
+  if(n==='report') renderReport();
   scheduleSave();
 }
 
@@ -356,10 +451,13 @@ function applySheet(S){
   G.n=S.n;G.nF=S.nF;G.valid=S.valid;G.isNan=S.isNan;G.dt=S.dt;G.df=S.df;
 }
 function updateCompareTabVis(){
-  const on=G.sheets.length>=2;
-  $('tab-btn-compare').classList.toggle('hidden',!on);
-  $('tab-btn-spectrum').classList.toggle('tab-end',!on);
-  if(!on&&currentTab==='compare')switchTab('overview');
+  const cmpOn=G.sheets.length>=2;
+  $('tab-btn-compare').classList.toggle('hidden',!cmpOn);
+  $('tab-btn-report').classList.remove('hidden');
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('tab-end'));
+  const vis=[...document.querySelectorAll('.tabs .tab:not(.hidden)')];
+  if(vis.length) vis[vis.length-1].classList.add('tab-end');
+  if(!cmpOn&&currentTab==='compare')switchTab('overview');
 }
 function processWorkbook(wb){
   G.sheets=[];
@@ -369,12 +467,41 @@ function processWorkbook(wb){
     if(S)G.sheets.push({name,...S});
   }
   if(!G.sheets.length){alert('沒有可用的工作表資料');return;}
+  populateSheetSelects();
+  $('overview-sheet').value='0';
+  $('spectrum-sheet').value='0';
   applySheet(G.sheets[0]);
   updateCompareTabVis();
   $('results').classList.remove('hidden');
   renderOverview();populateMS();
   if(G.sheets.length>=2){populateCmpSheets();renderCompare();}
+  renderReport();
   saveAll();
+}
+
+function populateSheetSelects(){
+  ['overview-sheet','spectrum-sheet'].forEach(id=>{
+    const sel=$(id);if(!sel)return;
+    const keep=sel.value;
+    sel.innerHTML='';
+    G.sheets.forEach((S,i)=>{
+      const o=document.createElement('option');
+      o.value=i;o.textContent=S.name||`工作表 ${i+1}`;
+      sel.appendChild(o);
+    });
+    if(keep!==''&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
+  });
+}
+function onOverviewSheetChange(){
+  applySheet(G.sheets[+$('overview-sheet').value||0]);
+  renderOverview();
+  scheduleSave();
+}
+function onSpectrumSheetChange(){
+  applySheet(G.sheets[+$('spectrum-sheet').value||0]);
+  populateMS();
+  doSpec();
+  scheduleSave();
 }
 
 function calcAvg(arr){let s=0,c=0;for(const v of arr){if(isFinite(v)&&v!==0){s+=Math.pow(10,v/10);c++;}}return c?10*Math.log10(s/c):0;}
@@ -407,6 +534,31 @@ function getTrendAxis(){
 }
 function applyTrendAxis(){renderOverview();scheduleSave();}
 function resetTrendAxis(){['t-xmin','t-xmax','t-ymin','t-ymax','t-y1min','t-y1max'].forEach(id=>{$(id).value='';});renderOverview();scheduleSave();}
+function resetAmpAxis(){['t2-xmin','t2-xmax','t2-ymin','t2-ymax'].forEach(id=>{$(id).value='';});renderOverview();scheduleSave();}
+function resetCmpLeqAxis(){['cl-xmin','cl-xmax','cl-ymin','cl-ymax'].forEach(id=>{$(id).value='';});renderCompare();}
+function resetCmpPfAxis(){['cp-xmin','cp-xmax','cp-ymin','cp-ymax'].forEach(id=>{$(id).value='';});renderCompare();}
+function resetCmpFftAxis(){['cf-xmin','cf-xmax','cf-ymin','cf-ymax'].forEach(id=>{$(id).value='';});renderCmpSpec();}
+function resetCmpDiffAxis(){['cd-xmin','cd-xmax','cd-ymin','cd-ymax'].forEach(id=>{$(id).value='';});renderCmpSpec();}
+function getAmpAxis(){
+  const g=id=>{const v=$(id).value;return v===''?undefined:+v;};
+  const tw=getTimeWindow();
+  return{xmin:g('t2-xmin')??(tw.auto?0:tw.lo),xmax:g('t2-xmax')??(tw.auto?tw.maxT:tw.hi),ymin:g('t2-ymin'),ymax:g('t2-ymax')};
+}
+function getCmpAxis(prefix,fallbackMax){
+  const g=id=>{const v=$(id).value;return v===''?undefined:+v;};
+  return{xmin:g(prefix+'-xmin')??0,xmax:g(prefix+'-xmax')??fallbackMax,ymin:g(prefix+'-ymin'),ymax:g(prefix+'-ymax')};
+}
+function top3PfDist(sheet,n){
+  const tol=Math.max((sheet.df||G.df||5)*5,50);
+  const pfWin=sheet.pf.map((v,i)=>i<n&&sheet.valid[i]&&inTimeRange(i)?v:null);
+  const vc=pfWin.filter(v=>v!==null).length;
+  if(!vc)return '—';
+  const top=clusterF(pfWin,tol).slice(0,3);
+  return top.map(c=>{
+    const pct=(c.vs.length/vc*100).toFixed(1);
+    return `<span class="pf-dist-item">~${Math.round(c.ctr)}Hz(${pct}%)</span>`;
+  }).join('')||'—';
+}
 
 // ── Overview ──
 function renderOverview(){
@@ -441,6 +593,7 @@ function renderOverview(){
   const gc='#e8e8e8';
   let step=1;if(maxT>60)step=10;else if(maxT>30)step=5;else if(maxT>15)step=2;
   const ta=getTrendAxis();
+  const aa=getAmpAxis();
 
   ch1=new Chart($('c1'),{type:'scatter',
     data:{datasets:[
@@ -468,8 +621,8 @@ function renderOverview(){
         afterLabel:c=>`峰值頻率: ${pf[c.dataIndex]} Hz`
       }}},
       scales:{
-        x:{type:'linear',min:ta.xmin??0,max:ta.xmax??maxT,offset:false,grid:{color:gc,offset:false},ticks:{font:FONT,stepSize:step},title:{display:true,text:'時間 (秒)',font:{...FONT,size:14}}},
-        y:{title:{display:true,text:'幅值 (dB)',font:{...FONT,size:14}},grid:{color:gc},ticks:{font:FONT}},
+        x:{type:'linear',min:aa.xmin,max:aa.xmax,offset:false,grid:{color:gc,offset:false},ticks:{font:FONT,stepSize:step},title:{display:true,text:'時間 (秒)',font:{...FONT,size:14}}},
+        y:{min:aa.ymin,max:aa.ymax,title:{display:true,text:'幅值 (dB)',font:{...FONT,size:14}},grid:{color:gc},ticks:{font:FONT}},
         y1:{position:'right',display:true,grid:{drawOnChartArea:false},ticks:{display:false},title:{display:true,text:' ',font:{size:14}},afterFit:a=>{a.width=0;}}
       }}
   });
@@ -606,19 +759,22 @@ function renderSpec(mi){
           const l1=`${freq[p.idx].toFixed(0)} Hz`, l2=`${p.val.toFixed(1)} dB`;
           const tw=Math.max(ctx.measureText(l1).width,ctx.measureText(l2).width);
           const bw=tw+16, bh=38;
-          let bx=px-bw/2, by=py-bh-16;
-          if(by<ys.top+2) by=py+12;
+          let bx=px-bw/2, by=py-bh-20;
+          if(by<ys.top+2) by=ys.top+2;
           if(bx<xs.left+2) bx=xs.left+2;
           if(bx+bw>xs.right-2) bx=xs.right-bw-2;
-          for(const b of placed){
-            if(!(bx+bw<b.x||bx>b.x+b.w||by+bh<b.y||by>b.y+b.h)){
-              by=Math.min(b.y+b.h+4, ys.bottom-bh-2);
-              if(by+bh>ys.bottom-2) by=Math.max(ys.top+2, b.y-bh-4);
+          for(let k=0;k<8;k++){
+            let hit=false;
+            for(const b of placed){
+              if(!(bx+bw<b.x||bx>b.x+b.w||by+bh<b.y||by>b.y+b.h))hit=true;
             }
+            if(!hit) break;
+            by-=bh+6;
+            if(by<ys.top+2){by=ys.top+2;bx+=bw*0.45;if(bx+bw>xs.right-2)bx=px-bw-8;}
           }
           placed.push({x:bx,y:by,w:bw,h:bh});
-          ctx.strokeStyle=col;ctx.globalAlpha=.28;ctx.setLineDash([4,3]);ctx.lineWidth=1;
-          ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,ys.bottom);ctx.stroke();
+          ctx.strokeStyle=col;ctx.globalAlpha=.35;ctx.setLineDash([3,3]);ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,by+bh);ctx.stroke();
           ctx.setLineDash([]);ctx.globalAlpha=1;
           ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);
           ctx.fillStyle='#fff';ctx.fill();
@@ -679,7 +835,7 @@ function nearestBin(freqArr,f){
   if(lo>0&&Math.abs(freqArr[lo-1]-f)<=Math.abs(freqArr[lo]-f))return lo-1;
   return lo;
 }
-function lineChart(canvas,datasets,xTitle,yTitle,xmin,xmax){
+function lineChart(canvas,datasets,xTitle,yTitle,ax){
   return new Chart(canvas,{
     type:'line',
     data:{datasets},
@@ -687,8 +843,8 @@ function lineChart(canvas,datasets,xTitle,yTitle,xmin,xmax){
       interaction:{mode:'nearest',intersect:false,axis:'x'},
       plugins:{legend:{display:false},tooltip:{filter:c=>c.parsed.y!=null}},
       scales:{
-        x:{type:'linear',min:xmin,max:xmax,title:{display:true,text:xTitle,font:{...FONT,size:14}},grid:{color:'#e8e8e8'},ticks:{font:FONT}},
-        y:{title:{display:true,text:yTitle,font:{...FONT,size:14}},grid:{color:'#e8e8e8'},ticks:{font:FONT}}
+        x:{type:'linear',min:ax.xmin,max:ax.xmax,title:{display:true,text:xTitle,font:{...FONT,size:14}},grid:{color:'#e8e8e8'},ticks:{font:FONT}},
+        y:{min:ax.ymin,max:ax.ymax,title:{display:true,text:yTitle,font:{...FONT,size:14}},grid:{color:'#e8e8e8'},ticks:{font:FONT}}
       }}
   });
 }
@@ -700,7 +856,6 @@ function renderCompare(){
   const dt=G.dt, tw=getTimeWindow();
   const n=Math.min(A.n,B.n);
   const leqA=[],leqB=[],pfA=[],pfB=[];
-  const dLeq=[],dPf=[];
   for(let i=0;i<n;i++){
     const t=+(i*dt).toFixed(3);
     const okA=A.valid[i], okB=B.valid[i];
@@ -708,37 +863,38 @@ function renderCompare(){
     leqB.push({x:t,y:okB?B.leq[i]:null});
     pfA.push({x:t,y:okA?A.pf[i]:null});
     pfB.push({x:t,y:okB?B.pf[i]:null});
-    dLeq.push({x:t,y:(okA&&okB)?A.leq[i]-B.leq[i]:null});
-    dPf.push({x:t,y:(okA&&okB&&A.pf[i]!=null&&B.pf[i]!=null)?A.pf[i]-B.pf[i]:null});
   }
-  let sAbsL=0,cL=0,sAbsF=0,cF=0,maxAbsL=0,maxAbsF=0;
   const avgA=calcAvg(A.leq.filter((_,i)=>i<n&&A.valid[i]&&inTimeRange(i)));
   const avgB=calcAvg(B.leq.filter((_,i)=>i<n&&B.valid[i]&&inTimeRange(i)));
-  for(let i=0;i<n;i++){
-    if(!inTimeRange(i)||!A.valid[i]||!B.valid[i])continue;
-    const dl=A.leq[i]-B.leq[i];sAbsL+=Math.abs(dl);cL++;if(Math.abs(dl)>maxAbsL)maxAbsL=Math.abs(dl);
-    if(A.pf[i]!=null&&B.pf[i]!=null){const dfq=A.pf[i]-B.pf[i];sAbsF+=Math.abs(dfq);cF++;if(Math.abs(dfq)>maxAbsF)maxAbsF=Math.abs(dfq);}
-  }
-  $('cmp-cards').innerHTML=[
-    {l:'Δ Leq(平均噪音) A−B',v:(avgA-avgB).toFixed(1),u:'dBA'},
-    {l:'平均 |Δ Leq|',v:cL?(sAbsL/cL).toFixed(2):'—',u:'dBA'},
-    {l:'平均 |Δ 峰值頻率|',v:cF?(sAbsF/cF).toFixed(0):'—',u:'Hz'},
-    {l:'對齊有效筆數',v:cL,u:`/ ${n}`}
-  ].map(c=>`<div class="info-card"><div class="label">${c.l}</div><div class="value">${c.v} <span class="unit">${c.u}</span></div></div>`).join('');
+  const leqAWin=A.leq.filter((_,i)=>i<n&&A.valid[i]&&inTimeRange(i));
+  const leqBWin=B.leq.filter((_,i)=>i<n&&B.valid[i]&&inTimeRange(i));
+  const maxLeqA=leqAWin.length?Math.max(...leqAWin):0;
+  const maxLeqB=leqBWin.length?Math.max(...leqBWin):0;
+  const avgDiff=avgA-avgB;
+  const maxDiff=maxLeqA-maxLeqB;
 
-  const xmin=tw.auto?0:tw.lo, xmax=tw.auto?((n-1)*dt):tw.hi;
+  $('cmp-cards').innerHTML=[
+    {l:'A 平均 Leq',v:avgA.toFixed(1),u:'dBA',c:'#2a78d6'},
+    {l:'B 平均 Leq',v:avgB.toFixed(1),u:'dBA',c:'#eb6834'},
+    {l:'平均差距 (A−B)',v:avgDiff.toFixed(1),u:'dBA',c:'#333'},
+    {l:'A 最大 Leq',v:maxLeqA.toFixed(1),u:'dBA',c:'#2a78d6'},
+    {l:'B 最大 Leq',v:maxLeqB.toFixed(1),u:'dBA',c:'#eb6834'},
+    {l:'最大差距 (A−B)',v:maxDiff.toFixed(1),u:'dBA',c:'#333'}
+  ].map(c=>`<div class="info-card"><div class="label">${c.l}</div><div class="value" style="color:${c.c}">${c.v} <span class="unit">${c.u}</span></div></div>`).join('');
+
+  $('cmp-pf-dist').innerHTML=`
+    <div class="pf-dist-row"><b>A</b>${top3PfDist(A,n)}</div>
+    <div class="pf-dist-row row-b"><b>B</b>${top3PfDist(B,n)}</div>`;
+
+  const defXmin=tw.auto?0:tw.lo, defXmax=tw.auto?((n-1)*dt):tw.hi;
+  const leqAx=getCmpAxis('cl',defXmax); if($('cl-xmin').value==='')leqAx.xmin=defXmin;
+  const pfAx=getCmpAxis('cp',defXmax); if($('cp-xmin').value==='')pfAx.xmin=defXmin;
   const ds=(data,col,fill)=>({data,borderColor:col,backgroundColor:fill||col,fill:false,spanGaps:false,borderWidth:2,pointRadius:n>200?.4:1.2,pointHoverRadius:4,tension:.2});
   if(chCmpLeq)chCmpLeq.destroy();
-  chCmpLeq=lineChart($('cCmpLeq'),[ds(leqA,'#2a78d6'),ds(leqB,'#eb6834')], '時間 (秒)','Run Leq (dBA)',xmin,xmax);
+  chCmpLeq=lineChart($('cCmpLeq'),[ds(leqA,'#2a78d6'),ds(leqB,'#eb6834')], '時間 (秒)','Run Leq (dBA)',leqAx);
   if(chCmpPf)chCmpPf.destroy();
-  chCmpPf=lineChart($('cCmpPf'),[ds(pfA,'#2a78d6'),ds(pfB,'#eb6834')], '時間 (秒)','峰值頻率 (Hz)',xmin,xmax);
+  chCmpPf=lineChart($('cCmpPf'),[ds(pfA,'#2a78d6'),ds(pfB,'#eb6834')], '時間 (秒)','峰值頻率 (Hz)',pfAx);
 
-  $('cmp-summary').innerHTML=`
-    <div class="sec"><div class="sec-title">📊 趨勢差異</div><div class="row">
-      <b>Leq(平均噪音)</b>　A ${avgA.toFixed(1)} dBA　B ${avgB.toFixed(1)} dBA　Δ ${ (avgA-avgB).toFixed(1)} dBA<br>
-      <b>平均絕對差值</b>　|Δ Leq| ${cL?(sAbsL/cL).toFixed(2):'—'} dBA　|Δ 峰值頻率| ${cF?(sAbsF/cF).toFixed(0):'—'} Hz<br>
-      <b>最大絕對差值</b>　|Δ Leq| ${maxAbsL.toFixed(2)} dBA　|Δ 峰值頻率| ${maxAbsF.toFixed(0)} Hz
-    </div></div>`;
   renderCmpSpec();
 }
 function renderCmpSpec(){
@@ -747,7 +903,7 @@ function renderCmpSpec(){
   const mi=+$('cmp-meas').value||0;
   const n=Math.min(A.n,B.n);
   if(mi<0||mi>=n)return;
-  $('cmp-meas-info').textContent=`A Leq=${isFinite(A.leq[mi])?A.leq[mi].toFixed(1):'—'}　B Leq=${isFinite(B.leq[mi])?B.leq[mi].toFixed(1):'—'} dBA`;
+  $('cmp-meas-info').textContent=`#${mi+1}（${(mi*G.dt).toFixed(1)}s）`;
   $('cmp-fft-title').textContent=`FFT 疊圖與差值（A − B）— #${mi+1}（${(mi*G.dt).toFixed(1)}s）`;
 
   const xyA=[],xyB=[],xyD=[];
@@ -759,11 +915,13 @@ function renderCmpSpec(){
     xyB.push({x:f,y:B.fft[bj][mi]});
     xyD.push({x:f,y:A.fft[i][mi]-B.fft[bj][mi]});
   }
+  const fftAx=getCmpAxis('cf',fMax);
+  const diffAx=getCmpAxis('cd',fMax);
   const ds=(data,col)=>({data,borderColor:col,backgroundColor:col,fill:false,borderWidth:1.4,pointRadius:0,pointHoverRadius:3,tension:0});
   if(chCmpFft)chCmpFft.destroy();
-  chCmpFft=lineChart($('cCmpFft'),[ds(xyA,'#2a78d6'),ds(xyB,'#eb6834')],'頻率 (Hz)','幅值 (dB)',0,fMax);
+  chCmpFft=lineChart($('cCmpFft'),[ds(xyA,'#2a78d6'),ds(xyB,'#eb6834')],'頻率 (Hz)','幅值 (dB)',fftAx);
   if(chCmpDiff)chCmpDiff.destroy();
-  chCmpDiff=lineChart($('cCmpDiff'),[{...ds(xyD,'#7c3aed'),fill:true,backgroundColor:'rgba(124,58,237,0.08)'}],'頻率 (Hz)','差值 A−B (dB)',0,fMax);
+  chCmpDiff=lineChart($('cCmpDiff'),[{...ds(xyD,'#7c3aed'),fill:true,backgroundColor:'rgba(124,58,237,0.08)'}],'頻率 (Hz)','差值 A−B (dB)',diffAx);
 
   const prom=+$('sl-prom').value,distHz=+$('sl-dist').value,thresh=+$('sl-thresh').value,maxN=+$('sl-maxn').value;
   const specA=xyA.map(p=>p.y), specB=xyB.map(p=>p.y);
@@ -777,22 +935,190 @@ function renderCmpSpec(){
     pkB.forEach((pb,j)=>{if(used.has(j))return;const d=Math.abs(A.freq[pa.idx]-A.freq[pb.idx]);if(d<bestD){bestD=d;best=j;}});
     if(best>=0&&bestD<=Math.max(distHz,A.df*2)){
       used.add(best);
-      const pb=pkB[best],fA=A.freq[pa.idx],fB=A.freq[pb.idx];
-      rows.push({fA,fB,df:fA-fB,aA:pa.val,aB:pb.val,da:pa.val-pb.val,match:true});
+      const pb=pkB[best];
+      rows.push({fA:A.freq[pa.idx],fB:A.freq[pb.idx],aA:pa.val,aB:pb.val,match:true});
     }else{
-      rows.push({fA:A.freq[pa.idx],fB:null,df:null,aA:pa.val,aB:null,da:null,match:false});
+      rows.push({fA:A.freq[pa.idx],fB:null,aA:pa.val,aB:null,match:false});
     }
   });
-  pkB.forEach((pb,j)=>{if(used.has(j))return;rows.push({fA:null,fB:A.freq[pb.idx],df:null,aA:null,aB:pb.val,da:null,match:false});});
+  pkB.forEach((pb,j)=>{if(used.has(j))return;rows.push({fA:null,fB:A.freq[pb.idx],aA:null,aB:pb.val,match:false});});
   rows.sort((x,y)=>(x.fA??x.fB)-(y.fA??y.fB));
-  let h=`<table class="ptable"><thead><tr><th>A 頻率</th><th>B 頻率</th><th>Δf (Hz)</th><th>A 幅值</th><th>B 幅值</th><th>ΔdB</th></tr></thead><tbody>`;
+  const pdA=A.pd&&A.pd[mi]!=null?A.pd[mi]:null;
+  const pdB=B.pd&&B.pd[mi]!=null?B.pd[mi]:null;
+  const headA=pdA!=null?pdA.toFixed(1):'—';
+  const headB=pdB!=null?pdB.toFixed(1):'—';
+  $('cmp-peak-head').innerHTML=`<span class="va">A=${headA}</span> / <span class="vb">B=${headB}</span> <span style="font-size:13px;font-weight:400;color:#888;margin-left:8px">dB（此筆峰值幅值）</span>`;
+  let h=`<table class="ptable"><thead><tr><th>A 頻率 (Hz)</th><th>B 頻率 (Hz)</th><th>A 幅值 (dB)</th><th>B 幅值 (dB)</th></tr></thead><tbody>`;
   rows.forEach(r=>{
-    h+=`<tr><td>${r.fA==null?'—':r.fA.toFixed(1)}</td><td>${r.fB==null?'—':r.fB.toFixed(1)}</td><td>${r.df==null?'—':r.df.toFixed(1)}</td><td>${r.aA==null?'—':r.aA.toFixed(1)}</td><td>${r.aB==null?'—':r.aB.toFixed(1)}</td><td>${r.da==null?'—':r.da.toFixed(1)}</td></tr>`;
+    h+=`<tr><td>${r.fA==null?'—':r.fA.toFixed(1)}</td><td>${r.fB==null?'—':r.fB.toFixed(1)}</td><td>${r.aA==null?'—':r.aA.toFixed(1)}</td><td>${r.aB==null?'—':r.aB.toFixed(1)}</td></tr>`;
   });
   h+=`</tbody></table>`;
   if(!rows.length)h=`<p style="color:#888;padding:12px;font-size:14px">此筆未偵測到峰值，可到「頻譜峰值分析」調低突出度後再比較</p>`;
   $('cmp-peak-wrap').innerHTML=h;
   scheduleSave();
+}
+
+// ── Report ──
+function sheetStatsFull(S){
+  const {n,dt,df,leq,pf,pd,valid,isNan,freq,nF}=S;
+  const mask=valid.map(Boolean);
+  const vLeq=leq.filter((_,i)=>mask[i]);
+  const vc=vLeq.length;
+  const avgL=calcAvg(vLeq);
+  const maxL=vc?Math.max(...vLeq):null;
+  let maxLi=-1;for(let i=0;i<n;i++) if(mask[i]&&leq[i]===maxL){maxLi=i;break;}
+  const vPd=pd.filter((v,i)=>mask[i]&&v!=null);
+  const maxPd=vPd.length?Math.max(...vPd):null;
+  let maxPdi=-1;for(let i=0;i<n;i++) if(mask[i]&&pd[i]===maxPd){maxPdi=i;break;}
+  const tol=Math.max(df*5,50);
+  const pfWin=pf.map((v,i)=>mask[i]?v:null);
+  const top3=clusterF(pfWin,tol).slice(0,3).map(c=>({hz:Math.round(c.ctr),pct:(c.vs.length/vc*100).toFixed(1),cnt:c.vs.length}));
+  let nanC=0,zeroC=0;
+  for(let i=0;i<n;i++){if(isNan[i])nanC++;else if(leq[i]===0)zeroC++;}
+  return{name:S.name,n,nF,dt,df,vc,span:(n-1)*dt,freqMin:freq[0],freqMax:freq[nF-1],
+    avgL,maxL,maxLi,maxPd,maxPdi,pfAtMax:maxPdi>=0?pf[maxPdi]:null,top3,nanC,zeroC};
+}
+function pairStatsFull(A,B){
+  const n=Math.min(A.n,B.n);
+  const leqA=A.leq.filter((_,i)=>i<n&&A.valid[i]);
+  const leqB=B.leq.filter((_,i)=>i<n&&B.valid[i]);
+  const avgA=calcAvg(leqA), avgB=calcAvg(leqB);
+  const maxA=leqA.length?Math.max(...leqA):0;
+  const maxB=leqB.length?Math.max(...leqB):0;
+  const tol=Math.max((A.df||5)*5,50);
+  function top3txt(S){
+    const pfWin=S.pf.map((v,i)=>i<n&&S.valid[i]?v:null);
+    const vc=pfWin.filter(v=>v!==null).length;
+    if(!vc)return '—';
+    return clusterF(pfWin,tol).slice(0,3).map(c=>`~${Math.round(c.ctr)}Hz(${(c.vs.length/vc*100).toFixed(1)}%)`).join('　');
+  }
+  return{nameA:A.name,nameB:B.name,n,avgA,avgB,avgDiff:avgA-avgB,maxA,maxB,maxDiff:maxA-maxB,top3A:top3txt(A),top3B:top3txt(B)};
+}
+function fmtPfTop3(top3){
+  if(!top3||!top3.length)return '—';
+  return top3.map(t=>`~${t.hz}Hz(${t.pct}%)`).join('　　');
+}
+function buildReportHtml(){
+  if(!G.sheets.length)return '<p>尚無資料，請先上傳 Excel 檔案。</p>';
+  const rate=+$('inp-rate').value||12800,samp=+$('inp-samples').value||2560;
+  const df=rate/samp, dt=samp/rate;
+  const fname=$('file-name').textContent||'未命名';
+  const now=new Date();
+  const ts=`${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const stats=G.sheets.map(sheetStatsFull);
+
+  let h=`<h2>FFT / PSD 噪音分析報告</h2>
+<div class="rpt-meta">
+  <b>檔案名稱</b>：${esc(fname)}<br>
+  <b>產生時間</b>：${ts}<br>
+  <b>DAQ 參數</b>：Rate = ${rate} Hz　Samples = ${samp}　df = ${df.toFixed(1)} Hz　dt = ${dt.toFixed(3)} s<br>
+  <b>工作表數</b>：${G.sheets.length}（${G.sheets.map(s=>esc(s.name)).join('、')}）
+</div>`;
+
+  h+=`<h2>一、各工作表數據摘要</h2>`;
+  stats.forEach(st=>{
+    h+=`<div class="rpt-sheet-card">
+      <div class="name">📄 ${esc(st.name)}</div>
+      <table class="rpt-table">
+        <tr><th style="width:28%">項目</th><th>數值</th></tr>
+        <tr><td>量測筆數</td><td>${st.n} 筆（有效 ${st.vc} 筆${st.nanC||st.zeroC?`，排除 NaN ${st.nanC} / 0值 ${st.zeroC}`:''}）</td></tr>
+        <tr><td>測試時長</td><td>${st.span.toFixed(1)} 秒</td></tr>
+        <tr><td>頻率範圍</td><td>${st.freqMin} – ${st.freqMax} Hz（${st.nF} bins）</td></tr>
+        <tr><td>Leq（平均噪音）</td><td><b>${st.avgL.toFixed(1)} dBA</b></td></tr>
+        <tr><td>最大 Run Leq</td><td><b>${st.maxL!=null?st.maxL.toFixed(1)+' dBA':'—'}</b>${st.maxLi>=0?`　@ ${(st.maxLi*st.dt).toFixed(1)}s（#${st.maxLi+1}）`:''}</td></tr>
+        <tr><td>最大峰值幅值</td><td><b>${st.maxPd!=null?st.maxPd.toFixed(1)+' dB':'—'}</b>${st.maxPdi>=0?`　@ ${st.pfAtMax} Hz　${(st.maxPdi*st.dt).toFixed(1)}s（#${st.maxPdi+1}）`:''}</td></tr>
+        <tr><td>峰值頻率落點（前三）</td><td class="rpt-pf">${fmtPfTop3(st.top3)}</td></tr>
+      </table>
+    </div>`;
+  });
+
+  h+=`<h2>二、工作表總覽對照</h2>
+  <table class="rpt-table">
+    <thead><tr>
+      <th>工作表</th><th>平均 Leq (dBA)</th><th>最大 Leq (dBA)</th><th>最大峰值 (dB)</th><th>峰值頻率前三</th>
+    </tr></thead><tbody>`;
+  stats.forEach(st=>{
+    h+=`<tr>
+      <td><b>${esc(st.name)}</b></td>
+      <td>${st.avgL.toFixed(1)}</td>
+      <td>${st.maxL!=null?st.maxL.toFixed(1):'—'}</td>
+      <td>${st.maxPd!=null?st.maxPd.toFixed(1):'—'}</td>
+      <td class="rpt-pf">${fmtPfTop3(st.top3)}</td>
+    </tr>`;
+  });
+  h+=`</tbody></table>`;
+
+  if(G.sheets.length>=2){
+    h+=`<h2>三、工作表兩兩差異比較</h2>`;
+    for(let i=0;i<G.sheets.length;i++){
+      for(let j=i+1;j<G.sheets.length;j++){
+        const p=pairStatsFull(G.sheets[i],G.sheets[j]);
+        h+=`<h3>${esc(p.nameA)} vs ${esc(p.nameB)}</h3>
+        <table class="rpt-table">
+          <thead><tr><th>項目</th><th>${esc(p.nameA)}</th><th>${esc(p.nameB)}</th><th>差距 (A−B)</th></tr></thead>
+          <tbody>
+            <tr><td>平均 Leq (dBA)</td><td>${p.avgA.toFixed(1)}</td><td>${p.avgB.toFixed(1)}</td><td><b>${p.avgDiff.toFixed(1)}</b></td></tr>
+            <tr><td>最大 Leq (dBA)</td><td>${p.maxA.toFixed(1)}</td><td>${p.maxB.toFixed(1)}</td><td><b>${p.maxDiff.toFixed(1)}</b></td></tr>
+            <tr><td>峰值頻率前三</td><td class="rpt-pf">${p.top3A}</td><td class="rpt-pf">${p.top3B}</td><td>—</td></tr>
+          </tbody>
+        </table>`;
+      }
+    }
+  }
+
+  return h;
+}
+function conclusionSectionHtml(){
+  const sec=G.sheets.length>=2?'四':'三';
+  const body=getConclusionContent();
+  return `<h2>${sec}、綜合結論</h2><div class="rpt-conclusion">${body}</div>
+  <div class="rpt-note">※ 本報告由 FFT / PSD 噪音分析工具自動產生，僅供工程參考。</div>`;
+}
+function getConclusionContent(){
+  const el=$('report-conclusion-edit');
+  if(!el||!el.innerText.trim()) return '<p>&nbsp;</p>';
+  return el.innerHTML;
+}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function renderReport(){
+  const el=$('report-content');
+  if(!el)return;
+  el.innerHTML=buildReportHtml();
+  const title=$('report-conclusion-title');
+  if(title) title.textContent=`${G.sheets.length>=2?'四':'三'}、綜合結論`;
+}
+function reportBaseName(){
+  const fname=$('file-name').textContent||'FFT-report';
+  return fname.replace(/\.[^.]+$/,'');
+}
+function buildExportBody(){
+  return buildReportHtml()+conclusionSectionHtml();
+}
+function reportDocStyles(){
+  return `body{font-family:'Microsoft JhengHei','Segoe UI',sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#222;line-height:1.85}
+h2{font-size:20px;font-weight:700;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #2a78d6}
+h3{font-size:16px;font-weight:600;margin:18px 0 10px;color:#444}
+.rpt-meta{background:#f8f9fb;border:1px solid #e8e8e8;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:14px;color:#555;line-height:2}
+.rpt-table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0 20px}
+.rpt-table th{background:#f0f4fa;padding:10px 12px;text-align:left;font-weight:600;border:1px solid #dde3ec}
+.rpt-table td{padding:9px 12px;border:1px solid #e8e8e8;vertical-align:top}
+.rpt-table tr:nth-child(even) td{background:#fafbfc}
+.rpt-sheet-card{border:1px solid #e0e0e0;border-radius:8px;padding:16px 18px;margin-bottom:16px;background:#fafbfc}
+.rpt-sheet-card .name{font-size:17px;font-weight:700;color:#2a78d6;margin-bottom:10px}
+.rpt-pf{font-family:Consolas,'Courier New',monospace;font-size:13px}
+.rpt-conclusion{min-height:60px;padding:8px 0}
+.rpt-note{font-size:13px;color:#888;margin-top:20px;padding-top:12px;border-top:1px dashed #ddd}`;
+}
+function downloadReport(){
+  if(!G.sheets.length){alert('尚無資料可下載');return;}
+  const base=reportBaseName();
+  const html=`<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>FFT 分析報告 - ${esc(base)}</title><style>${reportDocStyles()}</style></head><body>${buildExportBody()}</body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${base}_分析報告.html`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
 
 // ── Init ──
